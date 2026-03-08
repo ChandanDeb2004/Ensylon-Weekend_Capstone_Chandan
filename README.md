@@ -1,9 +1,12 @@
 ## Introduction
----------------
-This weeks Capstone project contains ETL processing of two different datasets 
-1.Airline Flights ETL Pipeline
-2.Stock Market ETL Pipeline
-----------------
+
+This week's Capstone project contains ETL processing of two different datasets:
+
+1. Airline Flights ETL Pipeline  
+2. Stock Market ETL Pipeline  
+
+---
+
 
 # 1. Airline Flights ETL Pipeline
 
@@ -58,23 +61,22 @@ Main stages:
 
 ## Dataset Columns
 
-  Column                        Description
-  ----------------------------- ---------------------------
-  Date                          Flight date
-  Departure Time                Scheduled departure
-  Flight Number                 Unique identifier
-  Airline                       Airline company
-  Aircraft Type                 Aircraft model
-  Origin Airport                Departure airport
-  Destination Airport           Arrival airport
-  Distance (km)                 Flight distance
-  Passengers (First Class)      First class passengers
-  Passengers (Business Class)   Business class passengers
-  Passengers (Economy Class)    Economy passengers
-  Revenue (\$)                  Revenue generated
-  Arrival Gate                  Arrival gate
-  Departure Gate                Departure gate
-
+| Column | Description |
+|------|-------------|
+| Date | Flight date |
+| Departure Time | Scheduled departure |
+| Flight Number | Unique identifier |
+| Airline | Airline company |
+| Aircraft Type | Aircraft model |
+| Origin Airport | Departure airport |
+| Destination Airport | Arrival airport |
+| Distance (km) | Flight distance |
+| Passengers (First Class) | First class passengers |
+| Passengers (Business Class) | Business class passengers |
+| Passengers (Economy Class) | Economy passengers |
+| Revenue ($) | Revenue generated |
+| Arrival Gate | Arrival gate |
+| Departure Gate | Departure gate |
 ------------------------------------------------------------------------
 
 ## Example ETL Code
