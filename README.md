@@ -118,6 +118,67 @@ GROUP BY airline;
 
 ------------------------------------------------------------------------
 
-## Author
+# Big Tech Stock Data ETL Pipeline
 
-Chandan Deb
+## Goal
+To perform end-to-end data preprocessing, transformation, and loading for an ETL project focused on historical big tech stock prices.
+
+------------------------------------------------------------------------
+## Dataset
+* **Source**: [Big Tech Stock Prices (GitHub)](https://github.com/cgre23/etl-dataset/blob/main/big_tech_stock_prices.txt)
+* **Contents**: Historical data including `open`, `high`, `low`, `close`, `adj_close`, and `volume` for 14 major tech companies.
+-----------------------------------------------------------------------
+
+## Tech Stack
+* **Language**: Python
+* **Libraries**: 
+    * `pandas`, `numpy`: Data manipulation and analysis.
+    * `matplotlib`, `seaborn`: Data quality visualization.
+    * `sqlite3`: Relational database storage.
+    * `logging`: Pipeline monitoring and error tracking.
+----------------------------------------------------------------------
+
+## Pipeline Architecture
+
+### 1. Extraction & Data Quality
+* **Data Extraction**: Reusable functions with error handling to load raw text/CSV files.
+* **Data Profiling**: Generates summaries of shapes, data types, and memory usage.
+* **Quality Assessment**: Visualizes null percentages and data completeness.
+* **Validation**: Checks for missing columns, row count thresholds, and high null ratios.
+
+### 2. Transformation & Feature Engineering
+* **Cleaning**: Handles missing values using time-series forward filling (`ffill`).
+* **Feature Creation**:
+    * **Daily Returns %**: `(close - open) / open`
+    * **Daily Price Range**: `high - low`
+    * **Quarterly/Yearly Labels**: Derived from date-time objects.
+* **Advanced Validation**:
+    * Identifies illegal weekend trades.
+    * Flags extreme price moves (>40% daily return).
+    * Checks for negative prices or duplicate records.
+
+### 3. Loading (Storage)
+* **File Storage**: Exports the fully cleaned dataset and summarized reports (Quarterly/Yearly) to an `output/` directory in CSV format.
+* **Database Storage**:
+    * Loads data into an SQLite database (`stock_market_etl.db`).
+    * Creates a `stock_prices_fact` table and summary tables.
+    * Implements **Database Indexing** on `stock_symbol` and `date` for high-performance querying.
+
+### 4. Logging and Error Handling
+* Includes a logging framework to track the ETL process.
+* Implements `try-except` blocks to ensure the pipeline doesn't crash on missing files or malformed data.
+
+---------------------------------------------------------------
+
+## Usage
+1.  Ensure you have the required libraries installed:
+    ```bash
+    pip install pandas numpy matplotlib seaborn
+    ```
+2.  Place the raw data file in the expected directory (default: `/content/Data/`).
+3.  Run the notebook cells sequentially to execute the full ETL pipeline.
+4.  Check the `output/` folder for CSV results and the local directory for the `.db` file.
+
+---------------------------------------------------------------------
+## Author
+**Chandan**
