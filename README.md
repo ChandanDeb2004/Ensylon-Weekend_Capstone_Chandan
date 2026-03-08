@@ -118,7 +118,9 @@ GROUP BY airline;
 
 ------------------------------------------------------------------------
 
-# Big Tech Stock Data ETL Pipeline
+
+
+# 2.Big Tech Stock Data ETL Pipeline
 
 ## Goal
 To perform end-to-end data preprocessing, transformation, and loading for an ETL project focused on historical big tech stock prices.
