@@ -391,7 +391,7 @@ Each provider implements **exponential backoff with jitter** — 3 retry attempt
 - **BM25 is case-sensitive** by design to preserve exact technical term matching. Queries must use the correct case for error codes and identifiers.
 - **Single-chunk indexes** skip conflict detection. The system needs at least two chunks from different sources to detect anything.
 
-See [`FAILURE_AND_MITIGATION.md`](FAILURE_AND_MITIGATION.md) for a full analysis of failure modes and their mitigations.
+See [`FAILURE_AND_MITIGATION.md`](Week-2/truth_engine/README.md) for a full analysis of failure modes and their mitigations.
 
 ---
 
