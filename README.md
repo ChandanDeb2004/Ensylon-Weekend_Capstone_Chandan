@@ -1,3 +1,7 @@
+# Conflict Secnario Demo
+[![Conflict Scenario Demo](https://img.youtube.com/vi/3DkTXxVQqPw/maxresdefault.jpg)](https://www.youtube.com/watch?v=3DkTXxVQqPw)
+
+---
 # Truth Engine
 ### A Production-Grade RAG Pipeline with Conflict Resolution
 
