@@ -217,53 +217,6 @@ python main.py --query "What do the legacy procedures say?" --all-tiers
 python main.py --query "What is the restart time?" --threshold 0.30
 ```
 
-### Programmatic API
-
-```python
-from main import RAGSystem
-
-# Initialise once — models load here
-system = RAGSystem(
-    reranker_top_k=5,          # chunks the LLM sees
-    hybrid_candidates=20,      # retrieval pool before reranking
-    abstention_threshold=0.40, # confidence gate
-)
-
-# Ingest documents with explicit metadata
-from ingestion import ingest_pdf, ingest_markdown, ingest_json
-
-all_chunks = []
-all_metadatas = []
-
-def collect(chunks, source_name, tier):
-    for i, chunk in enumerate(chunks):
-        all_chunks.append(chunk)
-        all_metadatas.append({
-            "source_tier": tier,
-            "source_name": source_name,
-            "page_number": i + 1 if tier == 1 else 0,
-            "section": "",
-        })
-
-collect(ingest_pdf("manuals/payment_api.pdf"),     "payment_api.pdf",  tier=1)
-collect(ingest_json("support_logs/incidents.csv"), "incidents.csv",    tier=2)
-collect(ingest_markdown("wiki/procedures.md"),     "procedures.md",    tier=3)
-
-system._vector_store.reset()
-system._bm25_store.reset()
-system._vector_store.add_chunks(all_chunks, all_metadatas)
-system._bm25_store.add_chunks(all_chunks, all_metadatas)
-
-# Query
-answer = system.query("Why does the payment API return HTTP 503?")
-print(answer.display())
-
-# Access structured fields
-print(f"Confidence: {answer.confidence.score:.3f}")
-print(f"Abstained:  {answer.abstained}")
-print(f"Citations:  {answer.citations}")
-print(f"Conflicts:  {answer.conflict_log}")
-```
 
 ---
 
