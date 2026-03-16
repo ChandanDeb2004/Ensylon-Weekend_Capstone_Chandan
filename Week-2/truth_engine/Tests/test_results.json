@@ -1,0 +1,44 @@
+[
+  {
+    "query": "Why does the payment API return HTTP 503?",
+    "answer": "I don't know based on the available sources.\n\nAbstaining: top rerank score -10.8045 is below the floor -3.0. Retrieved chunks are strongly irrelevant to the query.",
+    "abstained": true,
+    "confidence_score": 1.0153608288391167e-05,
+    "rerank_signal": 2.0307216576782333e-05,
+    "tier_signal": 0.0,
+    "agreement_signal": 0.0,
+    "citations": [],
+    "conflict_log": "No conflicts detected. All sources are consistent.",
+    "elapsed_seconds": 0.20525100000668317
+  },
+  {
+    "query": "How do I enable metrics for microservices?",
+    "answer": "To enable metrics for microservices, ensure the metrics exporter is enabled in the service configuration [SRC-1, SRC-2].",
+    "abstained": false,
+    "confidence_score": 0.980894,
+    "rerank_signal": 0.961788,
+    "tier_signal": 1.0,
+    "agreement_signal": 1.0,
+    "citations": [
+      "[SRC-1] According to payment_api.md (Page 1)",
+      "[SRC-2] According to auth_service.md (Page 1)"
+    ],
+    "conflict_log": "No conflicts detected. All sources are consistent.",
+    "elapsed_seconds": 12.125098699994851
+  },
+  {
+    "query": "How can I reset the database cache?",
+    "answer": "For issues where the application returns stale data after updates for the Cache Service, a \"Manual Redis cache flush\" temporarily resolved the issue [SRC-1, SRC-2]. Similarly, for the",
+    "abstained": false,
+    "confidence_score": 0.630764,
+    "rerank_signal": 0.261527,
+    "tier_signal": 1.0,
+    "agreement_signal": 1.0,
+    "citations": [
+      "[SRC-1] According to auth_service.md (Page 1)",
+      "[SRC-2] According to payment_api.md (Page 1)"
+    ],
+    "conflict_log": "No conflicts detected. All sources are consistent.",
+    "elapsed_seconds": 8.705002800008515
+  }
+]

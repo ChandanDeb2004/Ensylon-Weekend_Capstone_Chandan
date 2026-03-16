@@ -1,0 +1,117 @@
+# =============================================================================
+# RAG Pipeline — requirements.txt
+# Python >= 3.10 required (uses `str | Path`, `match`, and `X | Y` unions)
+# =============================================================================
+# Pin strategy:
+#   - Direct dependencies: pinned to a minimum compatible version (~=)
+#   - Known-breaking upper bounds are noted inline
+#   - Run `pip-compile requirements.txt` (pip-tools) to produce a fully
+#     locked requirements.lock for reproducible deployments
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# Station 1 — Ingestion  (ingestion/)
+# -----------------------------------------------------------------------------
+
+# pdf_ingestor.py — PDF parsing with native table extraction
+pdfplumber~=0.11.0
+
+# json_ingestor.py — unified JSON + CSV loading
+pandas~=2.2.0
+
+# markdown_ingestor.py — header-aware Markdown splitting
+# strip_headers=True requires langchain-text-splitters >= 0.2.0
+langchain-text-splitters~=0.3.0
+
+
+# -----------------------------------------------------------------------------
+# Station 2 — Storage  (storage/)
+# -----------------------------------------------------------------------------
+
+# vector_store.py — vector database with cosine similarity
+chromadb~=0.5.0
+
+# vector_store.py — 384-dim bi-encoder embeddings (all-MiniLM-L6-v2)
+# reranker.py     — cross-encoder scoring (ms-marco-MiniLM-L-6-v2)
+# Both models ship through the same package; only one install needed.
+sentence-transformers~=3.0.0
+
+# bm25_store.py — keyword-frequency BM25 index
+rank-bm25~=0.2.2
+
+
+# -----------------------------------------------------------------------------
+# Station 3 — Retrieval  (retrieval/)
+# -----------------------------------------------------------------------------
+# No additional dependencies — HybridRetriever uses storage/ classes directly.
+# Reranker uses sentence-transformers (already listed above).
+
+
+# -----------------------------------------------------------------------------
+# Station 4 — Resolution  (resolution/)
+# -----------------------------------------------------------------------------
+# No additional dependencies — ConflictDetector uses storage/ + llm_client.
+# numpy is pulled in transitively by sentence-transformers; listed explicitly
+# here because conflict_detector.py calls np.linalg.norm directly.
+numpy~=1.26.0
+
+
+# -----------------------------------------------------------------------------
+# Station 5 — Generation  (generation/)
+# -----------------------------------------------------------------------------
+
+# llm_client.py — Anthropic Messages API wrapper
+anthropic~=0.30.0
+
+# Primary LLM provider — Gemini
+google-generativeai~=0.8.0
+
+# Fallback LLM provider — Groq
+groq~=0.9.0
+
+# google-generativeai depends on google-api-core for exception types
+google-api-core~=2.19.0
+
+# -----------------------------------------------------------------------------
+# Station 6 — Evaluation  (evaluation/)
+# -----------------------------------------------------------------------------
+# No additional dependencies — confidence_scorer.py uses stdlib math only.
+
+
+# -----------------------------------------------------------------------------
+# main.py
+# -----------------------------------------------------------------------------
+# No additional dependencies — uses stdlib argparse, time, logging only.
+
+
+# -----------------------------------------------------------------------------
+# Transitive dependencies (pinned for stability, used directly in code)
+# -----------------------------------------------------------------------------
+
+# pdfplumber is built on pdfminer.six
+pdfminer.six>=20231228
+
+# pandas requires either PyArrow or fastparquet for Parquet support;
+# not used here but pyarrow ships with many chromadb installs anyway.
+# Listed to make the transitive pin explicit if needed:
+# pyarrow~=15.0.0
+
+# sentence-transformers pulls in torch; no explicit pin here as torch
+# version must match the local CUDA/CPU environment.
+# For CPU-only installs, add the index URL in pip.conf or use:
+# --extra-index-url https://download.pytorch.org/whl/cpu
+# torch~=2.3.0  # uncomment and pin for reproducible CI environments
+
+
+# -----------------------------------------------------------------------------
+# Development / testing extras (not required at runtime)
+# -----------------------------------------------------------------------------
+# Uncomment for development environments:
+
+# pytest~=8.2.0            # test runner
+# pytest-cov~=5.0.0        # coverage reporting
+# pip-tools~=7.4.0         # dependency locking (pip-compile)
+# ruff~=0.4.0              # linter + formatter (replaces flake8 + black)
+# mypy~=1.10.0             # static type checking
+# types-pdfminer           # mypy stubs for pdfminer.six

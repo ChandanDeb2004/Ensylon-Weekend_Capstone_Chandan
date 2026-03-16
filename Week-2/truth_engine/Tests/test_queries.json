@@ -1,0 +1,14 @@
+[
+  {
+    "query": "Why does the payment API return HTTP 503?",
+    "expected_source": "manual"
+  },
+  {
+    "query": "How do I enable metrics for microservices?",
+    "expected_source": "support_log"
+  },
+  {
+    "query": "How can I reset the database cache?",
+    "expected_source": "wiki"
+  }
+]
