@@ -81,6 +81,7 @@ def create_escalation_task(
     context_str: str,
     force_escalate: bool = False,
     issue_type_hint: str = "",
+    context_tasks: list = None,
 ) -> Task:
     force_note = (
         "NOTE: The Orchestrator has determined that escalation IS required. "
@@ -124,6 +125,7 @@ ESCALATION_FINDINGS:
 - Next Steps for Customer: [what the customer should expect next]
 """,
         agent=agent,
+        context=context_tasks if context_tasks else None,
         expected_output=(
             "Only the ESCALATION_FINDINGS block. "
             "No Thought text, no Action text, no preamble. "

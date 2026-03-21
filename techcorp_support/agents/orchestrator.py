@@ -143,11 +143,15 @@ def detect_conflicts(results: dict, state: StateManager, session_id: str) -> lis
                     state.log_conflict(conflict)
                     log_conflict(session_id, conflict, resolution="Contract overrides account record.")
 
-    # Conflict 3: Seat overage detected
-    if "overage" in account_out.lower() and "overage: none" not in account_out.lower():
-        conflict = "NOTICE: Seat overage detected — more active users than licensed seats."
-        conflicts.append(conflict)
-        state.log_conflict(conflict)
+    # Conflict 3: Seat overage detected — only flag if overage is a positive number
+    if "overage" in account_out.lower():
+        # Only real overage — not "Overage: 0" or "Overage: none"
+        import re as _re
+        overage_match = _re.search(r'overage[: ]+([0-9]+)', account_out.lower())
+        if overage_match and int(overage_match.group(1)) > 0:
+            conflict = f"NOTICE: Seat overage detected — {overage_match.group(1)} more active users than licensed seats."
+            conflicts.append(conflict)
+            state.log_conflict(conflict)
 
     return conflicts
 
@@ -215,7 +219,43 @@ def synthesize_response(
     return "\n".join(sections)
 
 
-# ── Main Orchestration Entry Point ────────────────────────────────────────────
+# ── Post-process escalation output ───────────────────────────────────────────
+
+def _patch_escalation_output(esc_output: str, state: StateManager) -> str:
+    """Replace LLM placeholder values with real values from state."""
+    s = state.state
+    lines = esc_output.splitlines()
+    result = []
+
+    for line in lines:
+        line_lower = line.lower()
+
+        # ── Ticket ID line ────────────────────────────────────────────────────
+        if "ticket id" in line_lower:
+            tid = s.escalation_ticket_id
+            if tid and tid not in ("N/A", ""):
+                # Replace any placeholder: [N/A], N/A, [ESC-XXXXX], ESC-XXXXX, [n/a]
+                for ph in ("[N/A]", "[n/a]", "[ESC-XXXXX]", "ESC-XXXXX"):
+                    line = line.replace(ph, tid)
+                # Handle bare N/A at end of line (e.g. "- Ticket ID: [N/A]" or "* Ticket ID: N/A")
+                if line.strip().endswith(": N/A") or line.strip().endswith(": [N/A]"):
+                    line = line.rsplit("N/A", 1)[0] + tid
+                    line = line.replace("[", "").replace("]", "")
+
+        # ── Assigned Team line ────────────────────────────────────────────────
+        elif "assigned team" in line_lower and "to be determined" in line_lower:
+            team = "Customer Success" if "sla" in esc_output.lower() else "Support"
+            # Preserve the bullet/star prefix
+            prefix = "- " if line.lstrip().startswith("-") else "* " if line.lstrip().startswith("*") else ""
+            line = prefix + "Assigned Team: " + team
+
+        # ── SLA target placeholder ────────────────────────────────────────────
+        elif "sla target from get_escalation_routing" in line_lower:
+            line = line.replace("[SLA target from get_escalation_routing]", "1 hour")
+
+        result.append(line)
+
+    return "\n".join(result)
 
 def run_support_crew(
     query: str,
@@ -326,11 +366,13 @@ def run_support_crew(
             contract_id=contract_id,
             check_sla=plan["needs_escalation"] or plan["revenue_impact"],
             issue_date=plan["issue_date"],
+            context_tasks=list(tasks),  # pass account findings as context
         )
         crew_agents.append(con_agent)
         tasks.append(con_task)
 
-    # Escalation always runs last (depends on all other findings)
+    # Escalation always runs last — pass all previous tasks as context
+    # so it receives actual findings, not the empty pre-run state
     esc_agent = create_escalation_agent(session_id)
     esc_task  = create_escalation_task(
         esc_agent, query, ctx,
@@ -340,6 +382,7 @@ def run_support_crew(
             else "onboarding" if "migrat" in query.lower()
             else "general"
         ),
+        context_tasks=tasks,  # inject all previous task outputs as context
     )
     crew_agents.append(esc_agent)
     tasks.append(esc_task)
@@ -390,10 +433,49 @@ def run_support_crew(
             agents_results[agent_key] = raw_output  # fallback
 
     # ── Step 7: Post-process findings into state ──────────────────────────────
+    # Search ALL outputs for real ticket ID (may appear in raw_output even if
+    # not in the parsed escalation task output due to CrewAI output mapping)
+    esc_raw = agents_results.get("escalation", "")
+    search_targets = [esc_raw, raw_output]
+    real_ticket_id = None
+
+    for text in search_targets:
+        t_match = re.search(r"ESC-[A-Z0-9]{4,}", text)
+        if t_match and "XXXXX" not in t_match.group(0):
+            real_ticket_id = t_match.group(0)
+            break
+
+    esc_lower = esc_raw.lower()
+    is_escalation = "escalate" in esc_lower and "resolve_automatically" not in esc_lower
+
+    if is_escalation and real_ticket_id:
+        priority = "critical"
+        for pr in ["critical", "high", "medium", "low"]:
+            if pr in esc_lower:
+                priority = pr
+                break
+        state.set_escalation(real_ticket_id, priority)
+        log_escalation_event(session_id, real_ticket_id, priority, reason=esc_raw[:300])
+        emit(f"🚨 Escalation → Ticket: {real_ticket_id} | Priority: {priority.upper()}")
+    elif is_escalation and not real_ticket_id:
+        # Escalation decided but no ticket found in output — generate fallback ID
+        import uuid as _uuid
+        real_ticket_id = f"ESC-{str(_uuid.uuid4())[:6].upper()}"
+        priority = "critical" if "critical" in esc_lower else "high"
+        state.set_escalation(real_ticket_id, priority)
+        emit(f"🚨 Escalation (fallback) → Ticket: {real_ticket_id} | Priority: {priority.upper()}")
+
+    # Always patch escalation output with real values from state
+    if "escalation" in agents_results:
+        agents_results["escalation"] = _patch_escalation_output(
+            agents_results["escalation"], state
+        )
+        logger.info(f"[ORCHESTRATOR] Escalation output after patch:\n{agents_results['escalation'][:300]}")
+
     for agent_key, output in agents_results.items():
         state.add_finding(
             agent=agent_key,
-            finding=output[:600],  # truncate for state efficiency
+            finding=output[:600],
             confidence="high",
         )
 
@@ -401,23 +483,7 @@ def run_support_crew(
     emit("🔎 Detecting conflicts between agent findings...")
     conflicts = detect_conflicts(agents_results, state, session_id)
 
-    # ── Step 9: Extract escalation info from escalation agent output ──────────
-    esc_output = agents_results.get("escalation", "")
-    esc_lower  = esc_output.lower()
-
-    if "escalate" in esc_lower and "resolve_automatically" not in esc_lower:
-        ticket_match = re.search(r'ESC-[A-Z0-9]+', esc_output)
-        ticket_id    = ticket_match.group(0) if ticket_match else f"ESC-{session_id[:6].upper()}"
-
-        priority = "critical"
-        for p in ["critical", "high", "medium", "low"]:
-            if p in esc_lower:
-                priority = p
-                break
-
-        state.set_escalation(ticket_id, priority)
-        log_escalation_event(session_id, ticket_id, priority, reason=esc_output[:300])
-        emit(f"🚨 Escalation triggered → Ticket: {ticket_id} | Priority: {priority.upper()}")
+    # ── Step 9: Escalation already handled in Step 7 ─────────────────────────
 
     # ── Step 10: Synthesize final response ────────────────────────────────────
     emit("✍️  Synthesizing final response...")

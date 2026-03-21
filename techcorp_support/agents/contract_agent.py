@@ -69,6 +69,7 @@ def create_contract_task(
     contract_id: str = "CTR-001",
     check_sla: bool = False,
     issue_date: str = "",
+    context_tasks: list = None,
 ) -> Task:
     sla_instruction = ""
     if check_sla:
@@ -88,17 +89,20 @@ QUERY: {query}
 SHARED INVESTIGATION CONTEXT:
 {context_str}
 
-CONTRACT ID TO REVIEW: {contract_id}
+CONTRACT ID: {contract_id}
 
-YOUR TASK:
-1. Call lookup_contract({contract_id}) to retrieve the full contract.
-2. Call get_contract_terms({contract_id}) to get SLA hours, pricing, and special terms.
-3. Call get_included_features({contract_id}) to see contractually entitled features.
-   Compare these against what the account currently has enabled — flag mismatches.
-4. Check if any special terms in the contract OVERRIDE public documentation or the
-   standard feature matrix (especially API rate limits).
+⛔ HARD RULE: Every tool call MUST use "{contract_id}" as the argument.
+   Do not use CTR-001, CTR-002 unless {contract_id} matches exactly.
+   Use ONLY: {contract_id}
+
+YOUR TASK — call these tools in order:
+Step 1: lookup_contract("{contract_id}") → read the plan, SLA type, all fields
+Step 2: get_contract_terms("{contract_id}") → get exact SLA hours and special terms
+Step 3: get_included_features("{contract_id}") → list all features in contract
 {sla_instruction}
-6. If any tool fails, document the gap and reason from available data.
+Step 5: If any tool fails, document it and fill that field as "tool failure - unavailable"
+Step 6: Fill every field in CONTRACT_FINDINGS using the actual data from Steps 1-4.
+        Do NOT write "unknown" or "to be determined" — use real values from tool responses.
 
 CONFLICT RESOLUTION RULE: If contract terms conflict with documentation or account
 settings, the contract is the authoritative source. State this explicitly.
@@ -119,6 +123,7 @@ CONTRACT_FINDINGS:
 - Confidence: [high/medium/low]
 """,
         agent=agent,
+        context=context_tasks if context_tasks else None,
         expected_output=(
             "Only the CONTRACT_FINDINGS block. "
             "No 'Thought:' text, no 'Action:' text, no preamble, no code fences. "

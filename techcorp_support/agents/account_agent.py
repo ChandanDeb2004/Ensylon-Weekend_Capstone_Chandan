@@ -69,17 +69,19 @@ QUERY: {query}
 SHARED INVESTIGATION CONTEXT:
 {context_str}
 
-⚠️  MANDATORY: YOU MUST ONLY USE CUSTOMER ID: {customer_id}
-Do NOT use any other customer ID. Do NOT use CUST-001, CUST-002 unless that IS {customer_id}.
-Every tool call MUST pass exactly "{customer_id}" as the customer_id argument.
+CUSTOMER ID: {customer_id}
 
-YOUR TASK:
-1. Call lookup_customer("{customer_id}") to get their profile and plan.
-2. Call check_account_status("{customer_id}") to verify status and seat allocation.
-3. Call list_enabled_features("{customer_id}") to see what features are active.
-4. If billing is relevant to the query, call get_billing_history("{customer_id}").
-5. Identify ANY discrepancies (seat overages, suspended status, unexpected features enabled/disabled).
-6. If any tool fails, note it clearly and proceed with available data.
+⛔ HARD RULE: Every single tool call in this task MUST use "{customer_id}" as the argument.
+   Using ANY other customer ID (CUST-001, CUST-002, etc.) is WRONG unless {customer_id} matches.
+   Do not guess or substitute. Use ONLY: {customer_id}
+
+YOUR TASK — call tools in this exact order with EXACTLY "{customer_id}":
+1. lookup_customer("{customer_id}")
+2. check_account_status("{customer_id}")
+3. list_enabled_features("{customer_id}")
+4. get_billing_history("{customer_id}") — only if billing is relevant to the query
+5. Note any discrepancies found in the results above.
+6. If any tool fails, document it and continue with available data.
 
 OUTPUT FORMAT — always end with a structured findings block:
 ACCOUNT_FINDINGS:

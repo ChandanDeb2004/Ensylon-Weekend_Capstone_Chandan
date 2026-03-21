@@ -9,12 +9,12 @@ import random
 import logging
 import functools
 from typing import Any, Callable, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
 
-def with_tool_behavior(tool_name: str, failure_rate: float = 0.08):
+def with_tool_behavior(tool_name: str, failure_rate: float = 0.03):
     """
     Decorator that wraps any tool function with:
       - Simulated latency (100–800ms)
@@ -48,7 +48,7 @@ def with_tool_behavior(tool_name: str, failure_rate: float = 0.08):
                     "error_message": f"Simulated {error_type}: tool temporarily unavailable.",
                     "data": None,
                     "latency_ms": int(elapsed * 1000),
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
 
             # Execute actual tool logic
@@ -64,7 +64,7 @@ def with_tool_behavior(tool_name: str, failure_rate: float = 0.08):
                     "call_id": call_id,
                     "data": result,
                     "latency_ms": int(elapsed * 1000),
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             except Exception as exc:
                 elapsed = time.time() - start_time
@@ -80,7 +80,7 @@ def with_tool_behavior(tool_name: str, failure_rate: float = 0.08):
                     "error_message": str(exc),
                     "data": None,
                     "latency_ms": int(elapsed * 1000),
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
         return wrapper
     return decorator

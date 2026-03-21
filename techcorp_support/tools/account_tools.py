@@ -163,7 +163,7 @@ def _list_enabled_features_impl(customer_id: str) -> dict:
 def lookup_customer(customer_id: str) -> str:
     """
     Fetch complete customer profile from the database.
-    Input: customer_id (string, e.g. 'CUST-001')
+    Input: customer_id (string) — use EXACTLY the customer ID specified in your task, no substitutions.
     Returns: customer profile including plan, seats, status, contract ID.
     Use when you need to identify the customer's current plan and account details.
     """
