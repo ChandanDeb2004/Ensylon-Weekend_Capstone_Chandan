@@ -1,7 +1,6 @@
 """
-metrics.py — per-run metrics with Langfuse v4 push.
+metrics.py — langfuse==4.0.1 compatible.
 """
-
 import logging
 from datetime import datetime, timezone
 from typing import Optional

@@ -1,7 +1,7 @@
 crewai>=1.10.1
 crewai-tools>=0.25.0
 
-langfuse>=2.50.0
+langfuse==2.36.2
 ollama>=0.4.0
 
 streamlit>=1.39.0

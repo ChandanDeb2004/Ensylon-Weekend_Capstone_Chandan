@@ -86,7 +86,7 @@ def analyze_query(query: str) -> dict:
 
     # Extract customer_id if present in query
     cid_match = re.search(r'\b(CUST-\d+)\b', query, re.IGNORECASE)
-    customer_id = cid_match.group(1).upper() if cid_match else "CUST-003"  # default for demo
+    customer_id = cid_match.group(1).upper() if cid_match else None  # explicit arg overrides this
 
     # Extract contract_id if present
     ctr_match = re.search(r'\b(CTR-\d+)\b', query, re.IGNORECASE)
@@ -242,9 +242,12 @@ def run_support_crew(
     emit("🔍 Analyzing query and building investigation plan...")
     plan = analyze_query(query)
 
-    # Override customer_id if explicitly passed
+    # Explicit customer_id arg always wins over query extraction
+    # Fall back to CUST-003 only if neither source has an ID
     if customer_id:
         plan["customer_id"] = customer_id
+    elif plan["customer_id"] is None:
+        plan["customer_id"] = "CUST-003"
     cid = plan["customer_id"]
 
     # Auto-resolve contract_id from customer mapping if not in query

@@ -1,19 +1,20 @@
 """
-langfuse_config.py
-Verified for langfuse==4.0.1
+langfuse_config.py — pinned to langfuse==2.36.2
 
-langfuse 4.0.1 actual API:
+langfuse 2.36.2 stable API:
   from langfuse import Langfuse
-  lf = Langfuse(public_key, secret_key, host)  <- constructor still exists
-  trace = lf.trace(name, session_id)            <- returns StatefulTraceClient
-  trace.event(name, metadata, level)            <- attaches event to trace
-  lf.flush()                                    <- flush async queue
+  lf    = Langfuse(public_key, secret_key, host)
+  trace = lf.trace(name, session_id, metadata)   -> StatefulTraceClient
+  span  = trace.span(name, metadata)             -> StatefulSpanClient
+  event = trace.event(name, metadata, level)     -> logs event on trace
+  gen   = trace.generation(name, ...)            -> LLM generation
+  lf.flush()                                     -> sends all pending
 
-  CallbackHandler (for LangChain/CrewAI LLM tracing):
-  from langfuse.langchain import CallbackHandler  <- moved in v4 (was langfuse.callback)
+  from langfuse.callback import CallbackHandler  -> LangChain callback (2.x)
 
-  langfuse.configure() -> DOES NOT EXIST in any version, ignore previous attempts
-  langfuse.get_client() -> DOES NOT EXIST in 4.0.1
+Install:
+  pip uninstall langfuse -y
+  pip install langfuse==2.36.2
 """
 
 import os
@@ -23,15 +24,13 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-# Manual singleton — never use @lru_cache (caches failed None forever)
 _client = None
 _initialized = False
 
 
 def get_langfuse_client():
     """
-    Returns initialized Langfuse 4.0.1 client.
-    Uses Langfuse() constructor — same as v2, still valid in v4.
+    Returns initialized Langfuse 2.36.2 client singleton.
     """
     global _client, _initialized
 
@@ -42,7 +41,6 @@ def get_langfuse_client():
 
     if not is_langfuse_enabled():
         logger.info("[LANGFUSE] Credentials not configured — tracing disabled.")
-        _client = None
         return None
 
     try:
@@ -52,24 +50,27 @@ def get_langfuse_client():
             secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
             host=os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
         )
-        logger.info("[LANGFUSE] Client initialized → Langfuse Cloud (v4.0.1)")
+        ok = _client.auth_check()
+        if ok:
+            logger.info("[LANGFUSE] ✅ Connected to Langfuse Cloud (v2.36.2) — auth OK")
+        else:
+            logger.warning("[LANGFUSE] ⚠️  auth_check() = False — check your API keys")
         return _client
     except Exception as e:
-        logger.warning(f"[LANGFUSE] Client init failed: {e} — tracing disabled.")
+        logger.warning(f"[LANGFUSE] Client init failed: {e}")
         _client = None
         return None
 
 
 def get_langfuse_handler(session_id: str = "default", user_id: str = "support-system"):
     """
-    LangChain CallbackHandler for CrewAI LLM call tracing.
-    In langfuse v4 this moved from langfuse.callback -> langfuse.langchain
+    LangChain CallbackHandler for automatic LLM call tracing.
+    Attaches to CrewAI's LLM so every model call is traced.
     """
     if not is_langfuse_enabled():
         return None
     try:
-        # v4: moved to langfuse.langchain
-        from langfuse.langchain import CallbackHandler
+        from langfuse.callback import CallbackHandler
         handler = CallbackHandler(
             public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
             secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
@@ -80,34 +81,20 @@ def get_langfuse_handler(session_id: str = "default", user_id: str = "support-sy
         )
         logger.info(f"[LANGFUSE] CallbackHandler ready | session={session_id}")
         return handler
-    except ImportError:
-        # Fallback: try old path for safety
-        try:
-            from langfuse.callback import CallbackHandler
-            return CallbackHandler(
-                public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
-                secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
-                host=os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
-                session_id=session_id,
-            )
-        except Exception:
-            logger.warning(f"[LANGFUSE] CallbackHandler fallback failed: {e}")
-            return None
     except Exception as e:
         logger.warning(f"[LANGFUSE] CallbackHandler failed: {e}")
         return None
 
 
+# Compatibility aliases used in entry points
+def setup_langfuse_otel():
+    get_langfuse_client()
+
 def configure_langfuse():
-    """
-    Compatibility shim — configure() does not exist in langfuse 4.0.1.
-    Simply initializes the client singleton.
-    """
     get_langfuse_client()
 
 
 def flush():
-    """Flush pending traces."""
     lf = get_langfuse_client()
     if lf:
         try:
@@ -122,8 +109,7 @@ def is_langfuse_enabled() -> bool:
     return bool(pk and sk and pk.startswith("pk-lf") and sk.startswith("sk-lf"))
 
 
-def reset_client():
-    """Force re-init — useful for testing."""
+def reset():
     global _client, _initialized
     _client = None
     _initialized = False

@@ -109,6 +109,7 @@ DECISION RULES:
 - If NO triggers are met → output findings IMMEDIATELY, call NO tools
 
 TOOLS MAY ONLY BE CALLED WHEN ESCALATING. Do not call log_escalation_reason with ticket_id "N/A".
+When escalating: use the EXACT ticket_id string returned by create_escalation_ticket — never write 'ESC-XXXXX'.
 
 Your final output MUST be ONLY the structured block below — no "Thought:", no "Action:", no extra text:
 

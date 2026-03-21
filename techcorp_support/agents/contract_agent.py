@@ -120,7 +120,8 @@ CONTRACT_FINDINGS:
 """,
         agent=agent,
         expected_output=(
-            "A structured contract review with SLA determination, feature entitlements, "
-            "special terms, any conflicts with documentation, and breach/compensation details."
+            "Only the CONTRACT_FINDINGS block. "
+            "No 'Thought:' text, no 'Action:' text, no preamble, no code fences. "
+            "Start directly with 'CONTRACT_FINDINGS:' and fill in every field."
         ),
     )

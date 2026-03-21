@@ -107,7 +107,8 @@ FEATURE_FINDINGS:
 """,
         agent=agent,
         expected_output=(
-            "A structured feature investigation report with availability, limits, "
-            "setup guidance, any documentation discrepancies, and upgrade recommendations."
+            "Only the FEATURE_FINDINGS block. "
+            "No 'Thought:' text, no 'Action:' text, no preamble, no code fences. "
+            "Start directly with 'FEATURE_FINDINGS:' and fill in every field."
         ),
     )

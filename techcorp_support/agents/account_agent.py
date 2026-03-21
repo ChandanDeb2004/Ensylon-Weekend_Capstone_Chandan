@@ -69,13 +69,15 @@ QUERY: {query}
 SHARED INVESTIGATION CONTEXT:
 {context_str}
 
-CUSTOMER ID TO INVESTIGATE: {customer_id}
+⚠️  MANDATORY: YOU MUST ONLY USE CUSTOMER ID: {customer_id}
+Do NOT use any other customer ID. Do NOT use CUST-001, CUST-002 unless that IS {customer_id}.
+Every tool call MUST pass exactly "{customer_id}" as the customer_id argument.
 
 YOUR TASK:
-1. Call lookup_customer({customer_id}) to get their profile and plan.
-2. Call check_account_status({customer_id}) to verify status and seat allocation.
-3. Call list_enabled_features({customer_id}) to see what features are active.
-4. If billing is relevant to the query, call get_billing_history({customer_id}).
+1. Call lookup_customer("{customer_id}") to get their profile and plan.
+2. Call check_account_status("{customer_id}") to verify status and seat allocation.
+3. Call list_enabled_features("{customer_id}") to see what features are active.
+4. If billing is relevant to the query, call get_billing_history("{customer_id}").
 5. Identify ANY discrepancies (seat overages, suspended status, unexpected features enabled/disabled).
 6. If any tool fails, note it clearly and proceed with available data.
 
@@ -93,7 +95,8 @@ ACCOUNT_FINDINGS:
 """,
         agent=agent,
         expected_output=(
-            "A structured account investigation report with plan details, "
-            "seat allocation, enabled features, billing status, and any discrepancies found."
+            "Only the ACCOUNT_FINDINGS block. "
+            "No 'Thought:' text, no 'Action:' text, no preamble, no code fences. "
+            "Start directly with 'ACCOUNT_FINDINGS:' and fill in every field."
         ),
     )
