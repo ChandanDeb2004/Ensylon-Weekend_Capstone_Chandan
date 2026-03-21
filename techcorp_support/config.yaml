@@ -1,0 +1,32 @@
+llm:
+  provider: ollama
+  model: gemma3:12b 
+  base_url: http://localhost:11434
+  temperature: 0.1
+  max_tokens: 4096
+
+langfuse:
+  public_key: "${LANGFUSE_PUBLIC_KEY}"
+  secret_key: "${LANGFUSE_SECRET_KEY}"
+  host: "https://cloud.langfuse.com"
+
+memory:
+  max_history_turns: 20
+  max_agent_findings_per_agent: 5
+  context_window_buffer: 500
+
+tools:
+  latency:
+    min_ms: 100
+    max_ms: 800
+  failure_rate: 0.08
+  timeout_ms: 5000
+
+escalation:
+  sla_breach_priority: critical
+  revenue_impact_threshold: 100
+  max_wait_days: 2
+
+logging:
+  level: INFO
+  format: "%(asctime)s | %(name)s | %(levelname)s | %(message)s"

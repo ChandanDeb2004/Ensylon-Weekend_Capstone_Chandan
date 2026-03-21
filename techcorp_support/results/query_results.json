@@ -1,0 +1,20 @@
+{
+  "generated_at": "2026-03-21T11:19:44.553714+00:00",
+  "total_scenarios": 1,
+  "results": [
+    {
+      "scenario_number": 0,
+      "scenario_name": "custom",
+      "query": "How do I enable dark mode?",
+      "session_id": "sess_ba0e0928",
+      "final_response": "\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n  TECHCORP SUPPORT INVESTIGATION COMPLETE\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\nOriginal Query: How do I enable dark mode?\n\n\u2699\ufe0f  FEATURE INVESTIGATION:\nFEATURE_FINDINGS:\n- Feature Investigated: dark mode\n- Available on Customer Plan: no\n- Plan Required: enterprise\n- Rate Limit: none\n- Setup Steps: 1. Log in as an Admin. 2. Go to Settings \u2192 Appearance. 3. Under Theme, select 'Dark'. 4. Click Save. Changes apply immediately for all users.\n- Documentation Discrepancies: none found\n- Configuration Issues: none\n- Upgrade Recommendation: Upgrade to the Enterprise plan to enable dark mode.\n- Tool Failures: none\n- Confidence: high\n\n\ud83d\udea8 ESCALATION DECISION:\nESCALATION_FINDINGS:\n- Escalation Decision: RESOLVE_AUTOMATICALLY\n- Priority: low\n- Issue Type: general\n- Assigned Team: N/A\n- Ticket ID: N/A\n- Escalation Triggers Met: none\n- Reasoning: The customer's query regarding dark mode enablement is a feature request tied to a plan requirement (Enterprise plan). The investigation revealed the necessary steps and the plan upgrade required. This is a straightforward informational response that does not trigger any escalation criteria. The customer can proceed with upgrading their plan to utilize this feature.\n- Next Steps for Customer: The customer should upgrade their plan to the Enterprise tier to enable dark mode. They can then follow the provided setup steps (Log in as an Admin. Go to Settings \u2192 Appearance. Under Theme, select 'Dark'. Click Save.)\n\n\u2705 RESOLUTION: Issue resolved automatically \u2014 no escalation required.\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nAgents invoked: feature, escalation\nConflicts resolved: 0\nTool failures encountered: 0\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
+      "agents_used": [
+        "feature",
+        "escalation"
+      ],
+      "duration_s": 94.66,
+      "escalated": false,
+      "conflicts": []
+    }
+  ]
+}

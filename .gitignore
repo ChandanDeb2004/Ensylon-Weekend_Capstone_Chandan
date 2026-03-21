@@ -1,0 +1,86 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# ── Virtual Environments ───────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+.env.local
+.env.*.local
+
+# ── Environment & Secrets ─────────────────────────────────────────────────────
+.env
+*.env
+!.env.example
+
+# ── Results & Session Data ────────────────────────────────────────────────────
+results/query_results.json
+results/sessions/
+results/langfuse_export.json
+
+# Keep analysis.md in git
+!results/analysis.md
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+results/system.log
+
+# ── Diagnostic Scripts (temp) ─────────────────────────────────────────────────
+test_langfuse.py
+diagnose2.py
+diagnose3.py
+confirm_api.py
+
+# ── macOS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# ── IDEs ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.cursor/
+
+# ── Build / Distribution ──────────────────────────────────────────────────────
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+site/
+.cache/
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ── Type Checking ─────────────────────────────────────────────────────────────
+.mypy_cache/
+.pytype/
+.ruff_cache/
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Ollama / Model Artefacts ──────────────────────────────────────────────────
+*.gguf
+*.bin
+*.safetensors
+models/
