@@ -4,6 +4,7 @@ TechCorp Support Intelligence System — Streamlit Front-End
 Run: streamlit run streamlit_app.py
 """
 
+import os
 import sys
 import time
 import json
@@ -17,7 +18,7 @@ from queue import Queue, Empty
 import streamlit as st
 from dotenv import load_dotenv
 
-# ── 1. Session state bootstrap — must be first thing after st import ───────────
+# ── 1. Session state — must be first ──────────────────────────────────────────
 def _init_state():
     defaults = {
         "chat_history":      [],
@@ -30,7 +31,12 @@ def _init_state():
         "progress_steps":    [],
         "pending_query":     "",
         "pending_customer":  "",
-        "customer_index":    2,   # default to CUST-003 (Enterprise)
+        "customer_index":    2,
+        # LLM settings
+        "llm_provider":      "ollama",
+        "llm_model":         "gemma3:12b",
+        "llm_api_key":       "",
+        "llm_configured":    True,   # ollama needs no key
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -147,6 +153,25 @@ st.markdown("""
   .escalation-alert { background: rgba(248,81,73,0.1); border: 1px solid rgba(248,81,73,0.4); border-radius: 10px; padding: 1rem 1.2rem; margin: 0.6rem 0; }
   .escalation-alert-title { font-size: 0.9rem; font-weight: 700; color: #f85149 !important; margin-bottom: 0.4rem; }
 
+  /* LLM provider pills */
+  .provider-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 20px; font-size: 0.72rem;
+    font-family: 'JetBrains Mono', monospace; font-weight: 600;
+    border: 1px solid; margin: 2px;
+  }
+  .provider-ollama  { background: rgba(63,185,80,0.12);  color: #3fb950; border-color: rgba(63,185,80,0.3); }
+  .provider-ollama_cloud { background: rgba(63,185,80,0.12); color: #3fb950; border-color: rgba(63,185,80,0.3); }
+  .provider-groq    { background: rgba(248,81,73,0.12);  color: #f85149; border-color: rgba(248,81,73,0.3); }
+  .provider-gemini  { background: rgba(88,166,255,0.12); color: #58a6ff; border-color: rgba(88,166,255,0.3); }
+  .provider-openai  { background: rgba(188,140,255,0.12);color: #bc8cff; border-color: rgba(188,140,255,0.3); }
+  .provider-anthropic { background: rgba(240,136,62,0.12);color: #f0883e; border-color: rgba(240,136,62,0.3); }
+
+  .llm-config-box {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1rem; margin: 0.5rem 0;
+  }
+
   .stButton > button {
     background: var(--bg-card) !important; border: 1px solid var(--border) !important;
     color: var(--text-primary) !important; border-radius: 8px !important;
@@ -155,16 +180,16 @@ st.markdown("""
   }
   .stButton > button:hover { border-color: var(--accent) !important; background: rgba(88,166,255,0.08) !important; color: var(--accent) !important; }
 
-  .stTextArea textarea {
+  .stTextArea textarea, .stTextInput input {
     background: var(--bg-card) !important; border: 1px solid var(--border) !important;
     color: var(--text-primary) !important; border-radius: 8px !important; font-size: 0.9rem !important;
   }
-  .stTextArea textarea:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(88,166,255,0.1) !important; }
-
+  .stTextArea textarea:focus, .stTextInput input:focus {
+    border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(88,166,255,0.1) !important;
+  }
   .stSelectbox > div > div { background: var(--bg-card) !important; border: 1px solid var(--border) !important; color: var(--text-primary) !important; border-radius: 8px !important; }
 
   hr { border-color: var(--border) !important; margin: 1rem 0 !important; }
-
   .output-scroll { max-height: 500px; overflow-y: auto; padding-right: 4px; }
   .output-scroll::-webkit-scrollbar { width: 4px; }
   .output-scroll::-webkit-scrollbar-track { background: var(--bg-secondary); }
@@ -172,28 +197,63 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ── 5. Constants ───────────────────────────────────────────────────────────────
+# ── 5. Provider definitions ────────────────────────────────────────────────────
+PROVIDERS = {
+    "ollama": {
+        "label":    "Ollama (Local)",
+        "icon":     "🖥️",
+        "css":      "provider-ollama",
+        "needs_key": False,
+        "key_label": None,
+        "key_env":   None,
+        "models": [
+            # ── General Purpose ──────────────────────────────────────────
+            "gemma3:12b",
+            "gemma3:4b",
+            
+            
+        ],
+        "default_model": "gemma3:12b",
+        "note": "Runs locally. No API key needed. Start with: ollama serve",
+    },
+    "ollama_cloud": {
+        "label":    "Ollama Cloud",
+        "icon":     "☁️",
+        "css":      "provider-ollama",
+        "needs_key": True,
+        "key_label": "Ollama Account Token",
+        "key_env":   "OLLAMA_API_KEY",
+        "models": [
+            # ── Cloud models — no download needed, add :cloud tag ────────
+            "gpt-oss:20b-cloud",
+            "qwen3.5:cloud"
+        ],
+        "default_model": "deepseek-r1:cloud",
+        "note": "No download needed. Sign in at ollama.com and get your token.",
+    },
+    "groq": {
+        "label":    "Groq",
+        "icon":     "⚡",
+        "css":      "provider-groq",
+        "needs_key": True,
+        "key_label": "Groq API Key",
+        "key_env":   "GROQ_API_KEY",
+        "models": [
+            "llama-3.3-70b-versatile", 
+            "llama-3.1-8b-instant", "mixtral-8x7b-32768", "gemma2-9b-it",
+        ],
+        "default_model": "llama-3.3-70b-versatile",
+        "note": "Free tier available. Get key at console.groq.com",
+    },
+    
+}
+
 SCENARIOS = {
-    "1 · Dark Mode Setup": {
-        "query": "How do I enable dark mode in my account?",
-        "customer_id": "CUST-003",
-    },
-    "2 · API Access (Starter Plan)": {
-        "query": "I'm on the Starter plan, but I need to integrate with your API for my automation workflow. What are my options?",
-        "customer_id": "CUST-001",
-    },
-    "3 · API Rate Limit Contradiction": {
-        "query": "Your documentation says the Pro plan includes unlimited API calls, but I'm seeing rate limit errors after 1000 calls/month. I've checked my account and it shows Pro. Is this a bug?",
-        "customer_id": "CUST-002",
-    },
-    "4 · SLA Violation (Critical)": {
-        "query": "I've been waiting for support response for 10 days on a critical production issue. My company has a contract with a 24-hour SLA guarantee. This is now costing us $500/day in lost revenue. Please verify if the SLA was violated and escalate this immediately.",
-        "customer_id": "CUST-003",
-    },
-    "5 · Seat License Overage": {
-        "query": "Our company just migrated from the competitor platform. We have 15 users, but the plan shows only 10 seats. Can you help me understand the licensing model and figure out how to set up all our users?",
-        "customer_id": "CUST-001",
-    },
+    "1 · Dark Mode Setup": {"query": "How do I enable dark mode in my account?", "customer_id": "CUST-003"},
+    "2 · API Access (Starter Plan)": {"query": "I'm on the Starter plan, but I need to integrate with your API for my automation workflow. What are my options?", "customer_id": "CUST-001"},
+    "3 · API Rate Limit Contradiction": {"query": "Your documentation says the Pro plan includes unlimited API calls, but I'm seeing rate limit errors after 1000 calls/month. I've checked my account and it shows Pro. Is this a bug?", "customer_id": "CUST-002"},
+    "4 · SLA Violation (Critical)": {"query": "I've been waiting for support response for 10 days on a critical production issue. My company has a contract with a 24-hour SLA guarantee. This is now costing us $500/day in lost revenue. Please verify if the SLA was violated and escalate this immediately.", "customer_id": "CUST-003"},
+    "5 · Seat License Overage": {"query": "Our company just migrated from the competitor platform. We have 15 users, but the plan shows only 10 seats. Can you help me understand the licensing model and figure out how to set up all our users?", "customer_id": "CUST-001"},
 }
 
 CUSTOMER_OPTIONS = {
@@ -202,7 +262,6 @@ CUSTOMER_OPTIONS = {
     "CUST-003 · Initech LLC (Enterprise)": "CUST-003",
     "CUST-004 · Umbrella Ltd (Suspended)": "CUST-004",
 }
-
 CUSTOMER_KEYS = list(CUSTOMER_OPTIONS.keys())
 
 AGENT_META = {
@@ -212,9 +271,49 @@ AGENT_META = {
     "escalation": {"icon": "🚨", "label": "Escalation"},
 }
 
-# ── 6. Background thread ───────────────────────────────────────────────────────
+# ── 6. LLM configuration helpers ──────────────────────────────────────────────
+def apply_llm_config(provider: str, model: str, api_key: str = ""):
+    """Write the chosen LLM config to environment variables so base_agent picks it up."""
+    os.environ["LLM_PROVIDER"] = provider
+    os.environ["LLM_MODEL"]    = model
+
+    p = PROVIDERS[provider]
+    if p["needs_key"] and api_key:
+        os.environ[p["key_env"]] = api_key
+
+    # Also update config.yaml so CLI runs reflect the choice
+    try:
+        import yaml
+        cfg_path = Path("config.yaml")
+        cfg = yaml.safe_load(cfg_path.read_text()) if cfg_path.exists() else {}
+        cfg.setdefault("llm", {})
+        cfg["llm"]["provider"] = provider
+        cfg["llm"]["model"]    = model
+        cfg_path.write_text(yaml.dump(cfg, default_flow_style=False))
+    except Exception:
+        pass
+
+    # Reset LLM string cache in base_agent
+    try:
+        import agents.base_agent as ba
+        ba._CONFIG = None
+    except Exception:
+        pass
+
+    st.session_state.llm_provider   = provider
+    st.session_state.llm_model      = model
+    st.session_state.llm_configured = True
+    logger.info(f"[UI] LLM set to {provider}/{model}")
+
+
+def get_api_key_from_env(provider: str) -> str:
+    """Read existing API key from environment if already set."""
+    env_key = PROVIDERS[provider].get("key_env")
+    return os.getenv(env_key, "") if env_key else ""
+
+
+# ── 7. Background thread ───────────────────────────────────────────────────────
 def _run_query_thread(query: str, customer_id: str, session_id: str, q: Queue):
-    """Runs in background thread — never access st.session_state here."""
     try:
         from agents.orchestrator import run_support_crew
         def callback(step):
@@ -229,14 +328,25 @@ def _run_query_thread(query: str, customer_id: str, session_id: str, q: Queue):
     except Exception as e:
         q.put(("error", str(e)))
 
-# ── 7. Render helpers ──────────────────────────────────────────────────────────
+
+# ── 8. Render helpers ──────────────────────────────────────────────────────────
 def render_header():
-    st.markdown("""
+    provider = st.session_state.llm_provider
+    model    = st.session_state.llm_model
+    p        = PROVIDERS.get(provider, PROVIDERS["ollama"])
+    st.markdown(f"""
     <div class="app-header">
       <div style="font-size:2.2rem;">🤖</div>
-      <div>
+      <div style="flex:1">
         <div class="app-header-title">TechCorp Support Intelligence</div>
-        <div class="app-header-sub">CrewAI · Ollama · Langfuse Cloud · 5 Specialized Agents</div>
+        <div class="app-header-sub">CrewAI · Langfuse Cloud · 5 Specialized Agents</div>
+      </div>
+      <div>
+        <span class="provider-pill {p['css']}">{p['icon']} {p['label']}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;
+                     color:var(--text-muted);display:block;text-align:right;margin-top:4px">
+          {model}
+        </span>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -272,6 +382,86 @@ def render_chat():
     st.markdown('</div>', unsafe_allow_html=True)
 
 
+def render_llm_selector():
+    """Full LLM provider + model selector rendered in the sidebar."""
+    st.markdown("### 🤖 LLM Provider")
+
+    provider_labels = {k: f"{v['icon']} {v['label']}" for k, v in PROVIDERS.items()}
+    current_provider = st.session_state.llm_provider
+
+    # Provider radio buttons
+    selected_provider = st.radio(
+        "Provider",
+        options=list(PROVIDERS.keys()),
+        format_func=lambda k: provider_labels[k],
+        index=list(PROVIDERS.keys()).index(current_provider),
+        label_visibility="collapsed",
+    )
+
+    p = PROVIDERS[selected_provider]
+
+    # Model selector
+    current_model = (
+        st.session_state.llm_model
+        if st.session_state.llm_provider == selected_provider
+        else p["default_model"]
+    )
+    model_index = (
+        p["models"].index(current_model)
+        if current_model in p["models"]
+        else 0
+    )
+    selected_model = st.selectbox(
+        "Model",
+        options=p["models"],
+        index=model_index,
+    )
+
+    # API key input (shown only for non-local providers)
+    api_key = ""
+    if p["needs_key"]:
+        existing_key = get_api_key_from_env(selected_provider)
+        masked = f"{'*' * 20}{existing_key[-4:]}" if len(existing_key) > 4 else ""
+        api_key = st.text_input(
+            p["key_label"],
+            value="",
+            type="password",
+            placeholder=masked or f"Enter your {p['key_label']}...",
+        )
+        if not api_key and existing_key:
+            api_key = existing_key  # use existing env key if not re-entered
+        st.markdown(
+            f'<div style="font-size:0.68rem;color:var(--text-muted);margin-top:-8px">{p["note"]}</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            f'<div style="font-size:0.68rem;color:var(--accent-green);margin-top:4px">✅ {p["note"]}</div>',
+            unsafe_allow_html=True,
+        )
+
+    # Apply button
+    config_changed = (
+        selected_provider != st.session_state.llm_provider or
+        selected_model    != st.session_state.llm_model
+    )
+
+    btn_label = "✅ Applied" if not config_changed else "⚡ Apply Configuration"
+    if st.button(btn_label, disabled=not config_changed, use_container_width=True):
+        apply_llm_config(selected_provider, selected_model, api_key)
+        st.success(f"Switched to {p['label']} / {selected_model}")
+        st.rerun()
+
+    # Current config badge
+    curr_p = PROVIDERS.get(st.session_state.llm_provider, PROVIDERS["ollama"])
+    st.markdown(
+        f'<div style="margin-top:8px"><span class="provider-pill {curr_p["css"]}">'
+        f'{curr_p["icon"]} {st.session_state.llm_provider} · {st.session_state.llm_model}'
+        f'</span></div>',
+        unsafe_allow_html=True,
+    )
+
+
 def render_sidebar_details():
     result = st.session_state.current_result
     if not result:
@@ -279,10 +469,10 @@ def render_sidebar_details():
 
     st.markdown('<div class="card-title">Last Run — Agents Invoked</div>', unsafe_allow_html=True)
     active = result.get("agents_used", [])
-    chips = ""
-    for key, meta in AGENT_META.items():
-        cls = "agent-chip active" if key in active else "agent-chip"
-        chips += f'<span class="{cls}">{meta["icon"]} {meta["label"]}</span>'
+    chips = "".join(
+        f'<span class="agent-chip {"active" if k in active else ""}">{m["icon"]} {m["label"]}</span>'
+        for k, m in AGENT_META.items()
+    )
     st.markdown(f'<div style="margin-bottom:0.8rem">{chips}</div>', unsafe_allow_html=True)
 
     dur = result.get("duration_s", 0)
@@ -313,8 +503,17 @@ def render_sidebar_details():
                 st.code(output[:2000], language="text")
                 st.markdown("---")
 
-# ── 8. Main ────────────────────────────────────────────────────────────────────
+
+# ── 9. Main ────────────────────────────────────────────────────────────────────
 def main():
+    # Apply any saved LLM config to env vars on each rerun
+    if st.session_state.llm_configured:
+        os.environ["LLM_PROVIDER"] = st.session_state.llm_provider
+        os.environ["LLM_MODEL"]    = st.session_state.llm_model
+        p = PROVIDERS.get(st.session_state.llm_provider, {})
+        if p.get("key_env") and st.session_state.llm_api_key:
+            os.environ[p["key_env"]] = st.session_state.llm_api_key
+
     render_header()
     render_metrics()
     st.markdown("<hr>", unsafe_allow_html=True)
@@ -323,12 +522,15 @@ def main():
 
     # ── Sidebar ────────────────────────────────────────────────────────────────
     with side_col:
+        render_llm_selector()
+
+        st.markdown("<hr>", unsafe_allow_html=True)
+
         st.markdown("### 🧪 Test Scenarios")
         for name, data in SCENARIOS.items():
             if st.button(name, key=f"btn_{name}"):
                 st.session_state.pending_query    = data["query"]
                 st.session_state.pending_customer = data["customer_id"]
-                # Resolve index now, before rerun, so no widget conflict
                 for i, cid in enumerate(CUSTOMER_OPTIONS.values()):
                     if cid == data["customer_id"]:
                         st.session_state.customer_index = i
@@ -345,7 +547,6 @@ def main():
         render_chat()
         st.markdown("<hr>", unsafe_allow_html=True)
 
-        # Customer selector — index driven, never write to widget key
         customer_label = st.selectbox(
             "Customer",
             options=CUSTOMER_KEYS,
@@ -353,7 +554,6 @@ def main():
         )
         customer_id = CUSTOMER_OPTIONS[customer_label]
 
-        # Pending query from scenario button
         pending_q = st.session_state.pending_query
         if pending_q:
             st.session_state.pending_query = ""
@@ -382,12 +582,12 @@ def main():
 
         # ── Run investigation ──────────────────────────────────────────────────
         if send_btn and query_input.strip() and not st.session_state.running:
-            query = query_input.strip()
+            query      = query_input.strip()
+            session_id = st.session_state.session_id
+
             st.session_state.running = True
             st.session_state.chat_history.append({"role": "user", "content": query})
 
-            # Capture session_id on main thread — threads have no st context
-            session_id = st.session_state.session_id
             q: Queue = Queue()
             thread = threading.Thread(
                 target=_run_query_thread,
@@ -431,15 +631,19 @@ def main():
             placeholder.empty()
             st.session_state.running = False
 
+            provider = PROVIDERS.get(st.session_state.llm_provider, PROVIDERS["ollama"])
+
             if error:
                 st.session_state.chat_history.append({
                     "role": "assistant",
                     "content": (
                         f"[ERROR] Investigation failed:\n{error}\n\n"
+                        f"Provider: {provider['label']} · Model: {st.session_state.llm_model}\n\n"
                         "Please check:\n"
-                        "• Ollama is running  (ollama serve)\n"
-                        "• Model is pulled    (ollama pull gemma3:12b)\n"
-                        "• .env has Langfuse keys"
+                        "• Ollama is running if using local model  (ollama serve)\n"
+                        "• API key is set correctly for cloud providers\n"
+                        "• Model name is valid for the selected provider\n"
+                        "• .env file has Langfuse keys"
                     ),
                 })
             elif result:
@@ -451,7 +655,6 @@ def main():
                     "role": "assistant",
                     "content": result["final_response"],
                 })
-                # Persist to disk
                 try:
                     rp = Path("results/query_results.json")
                     existing = json.loads(rp.read_text()).get("results", []) if rp.exists() else []
@@ -460,6 +663,8 @@ def main():
                         "timestamp":      datetime.now(timezone.utc).isoformat(),
                         "query":          query,
                         "customer_id":    customer_id,
+                        "llm_provider":   st.session_state.llm_provider,
+                        "llm_model":      st.session_state.llm_model,
                         "final_response": result["final_response"],
                         "agents_used":    result["agents_used"],
                         "duration_s":     result["duration_s"],
@@ -476,10 +681,11 @@ def main():
     # ── Status bar ─────────────────────────────────────────────────────────────
     try:
         from monitoring.langfuse_config import is_langfuse_enabled
-        lf = "🟢 Langfuse Connected" if is_langfuse_enabled() else "🔴 Langfuse Not Configured"
+        lf = "🟢 Langfuse" if is_langfuse_enabled() else "🔴 Langfuse"
     except Exception:
-        lf = "🔴 Langfuse Not Configured"
+        lf = "🔴 Langfuse"
 
+    curr_p = PROVIDERS.get(st.session_state.llm_provider, PROVIDERS["ollama"])
     st.markdown(f"""
     <div style="position:fixed;bottom:0;left:0;right:0;background:var(--bg-secondary);
                 border-top:1px solid var(--border);padding:6px 20px;
@@ -487,7 +693,9 @@ def main():
                 font-family:'JetBrains Mono',monospace;font-size:0.68rem;z-index:999;">
       <span style="color:var(--text-muted)">TechCorp Support AI</span>
       <span style="color:var(--text-muted)">
-        Session: {st.session_state.session_id} &nbsp;|&nbsp; Ollama &nbsp;|&nbsp; {lf}
+        {curr_p['icon']} {st.session_state.llm_provider} · {st.session_state.llm_model}
+        &nbsp;|&nbsp; Session: {st.session_state.session_id}
+        &nbsp;|&nbsp; {lf}
       </span>
     </div>""", unsafe_allow_html=True)
 

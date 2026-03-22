@@ -197,10 +197,10 @@ def _check_feature_limits_impl(feature: str, plan: str) -> dict:
 # ── CrewAI Tool Wrappers ───────────────────────────────────────────────────────
 
 @tool("Get Feature Matrix")
-def get_feature_matrix() -> str:
+def get_feature_matrix(dummy: str = "") -> str:
     """
     Retrieve the complete feature availability matrix across all plans.
-    No input required.
+    Input: none required (dummy parameter exists for API compatibility only, leave blank).
     Returns: feature list, which plans include each feature, pricing, seat limits.
     Use when comparing what features are available on different subscription tiers.
     """

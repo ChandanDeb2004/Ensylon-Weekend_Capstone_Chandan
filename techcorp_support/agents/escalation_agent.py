@@ -2,10 +2,9 @@
 escalation_agent.py
 Escalation Agent — determines if human intervention is needed and creates tickets.
 
-Fixes applied:
- - Explicit instruction: do NOT call any tool when resolving automatically
- - Tightened expected_output to suppress Thought/Action bleed-through
- - Cleaner output format enforcement
+Groq fix: The model was writing ESCALATION_FINDINGS block AND calling a tool
+in the same response — Groq rejects mixed text+tool_call responses.
+Fix: Two-phase approach — tools first, THEN output block. Never simultaneously.
 """
 
 import logging
@@ -21,41 +20,39 @@ logger = logging.getLogger(__name__)
 ESCALATION_AGENT_ROLE = "Escalation Decision and Ticket Management Specialist"
 
 ESCALATION_AGENT_GOAL = """
-Apply TechCorp's escalation criteria rigorously to determine whether human intervention
-is required. When escalation IS warranted:
-1. Call get_escalation_routing(issue_type) to find the right team
-2. Call create_escalation_ticket(reason, priority, context) with full context
-3. Call notify_support_team(ticket_id) to alert the team
-4. Call log_escalation_reason(ticket_id, detailed_reason) with your reasoning
+Determine whether a support case requires human escalation and act accordingly.
 
-When escalation is NOT warranted:
-- Do NOT call any escalation tools
-- Simply state your decision and reasoning clearly
+STRICT TWO-PHASE PROCESS — never mix tool calls with text output:
+PHASE 1 (tool calls only): If escalating, call tools one at a time. No text output yet.
+PHASE 2 (text output only): After ALL tools are done, write the ESCALATION_FINDINGS block.
 
-ESCALATION TRIGGERS (must escalate if ANY apply):
-- Confirmed SLA breach on a guaranteed SLA contract → CRITICAL
-- Revenue impact > $100/day reported by customer → HIGH
-- Account suspended and customer disputes it → HIGH
-- Customer waited > 2 business days without response → HIGH
-- Bug confirmed affecting production system → HIGH
-- Contradictory data that cannot be resolved automatically → MEDIUM
-- Customer explicitly requests human agent → MEDIUM
-- Onboarding scenario with >10 users needing setup → MEDIUM
+When escalation is NOT warranted: skip Phase 1 entirely, go straight to Phase 2.
+
+ESCALATION TRIGGERS:
+- Confirmed SLA breach on guaranteed contract → CRITICAL
+- Revenue impact > $100/day → HIGH
+- Account suspended and disputed → HIGH
+- Waited > 2 business days → HIGH
+- Confirmed production bug → HIGH
+- Unresolvable contradiction → MEDIUM
+- Customer requests human → MEDIUM
+- Onboarding > 10 users → MEDIUM
 """
 
 ESCALATION_AGENT_BACKSTORY = """
-You are TechCorp's escalation specialist — the final decision-maker on whether a case
-needs human eyes. You've handled thousands of support cases and have a finely tuned sense
-of when automation has reached its limits.
+You are TechCorp's escalation specialist. You follow a strict two-phase process:
 
-CRITICAL RULE: When you decide NOT to escalate, you output your decision immediately
-without calling any tools. You only call tools (get_escalation_routing,
-create_escalation_ticket, notify_support_team, log_escalation_reason) when you have
-determined escalation IS needed.
+Phase 1 — Tool calls (if escalating):
+  Call get_escalation_routing first.
+  Then call create_escalation_ticket.
+  Then call notify_support_team.
+  Then call log_escalation_reason.
+  Each tool call is a SEPARATE step. Never call a tool and write text in the same step.
 
-You document every decision with clear reasoning so the human agent (or the system log)
-has full context. Your final output is always the structured ESCALATION_FINDINGS block
-with no trailing "Action: N/A" or "Thought:" text.
+Phase 2 — Write ESCALATION_FINDINGS block (always last, always text only):
+  After all tools are done (or immediately if not escalating), write the findings block.
+  Never call a tool while writing the findings block.
+  Never write the findings block while calling a tool.
 """
 
 
@@ -65,13 +62,13 @@ def create_escalation_agent(session_id: str = "default") -> Agent:
         goal=ESCALATION_AGENT_GOAL,
         backstory=ESCALATION_AGENT_BACKSTORY,
         tools=[
-            create_escalation_ticket,
             get_escalation_routing,
+            create_escalation_ticket,
             notify_support_team,
             log_escalation_reason,
         ],
         session_id=session_id,
-        max_iter=6,
+        max_iter=8,
     )
 
 
@@ -83,52 +80,67 @@ def create_escalation_task(
     issue_type_hint: str = "",
     context_tasks: list = None,
 ) -> Task:
-    force_note = (
-        "NOTE: The Orchestrator has determined that escalation IS required. "
-        "Execute the full escalation workflow: routing → ticket → notify → log."
-        if force_escalate
-        else
-        "Apply escalation criteria objectively. If NO triggers are met, output your "
-        "decision immediately WITHOUT calling any tools."
-    )
+
+    if force_escalate:
+        workflow = """
+⚠️  ESCALATION IS REQUIRED. Follow this exact sequence:
+STEP 1 (tool call): get_escalation_routing("{issue_type}")
+STEP 2 (tool call): create_escalation_ticket(reason, priority, context)
+STEP 3 (tool call): notify_support_team(ticket_id_from_step_2)
+STEP 4 (tool call): log_escalation_reason(ticket_id_from_step_2, reasoning)
+STEP 5 (text only): Write ESCALATION_FINDINGS block using ticket_id from Step 2.
+""".format(issue_type=issue_type_hint or "general")
+    else:
+        workflow = """
+DECISION PROCESS:
+A) Check if any escalation trigger applies.
+B) If YES → follow Steps 1-5 above (tools first, findings block last).
+C) If NO  → skip all tools, go directly to writing ESCALATION_FINDINGS block.
+
+⚠️  NEVER write ESCALATION_FINDINGS and call a tool in the same response step.
+    Tools first. Text output last. Never together.
+"""
 
     return Task(
         description=f"""
-You are the final agent in this investigation. Evaluate whether this case requires human escalation.
+Evaluate whether this support case requires human escalation.
 
 QUERY: {query}
 
-SHARED INVESTIGATION CONTEXT (findings from all other agents):
+SHARED INVESTIGATION CONTEXT:
 {context_str}
 
 ISSUE TYPE HINT: {issue_type_hint or 'determine from context'}
 
-{force_note}
+{workflow}
 
-DECISION RULES:
-- If ANY escalation trigger is met → call tools (routing, ticket, notify, log_reason) then output findings
-- If NO triggers are met → output findings IMMEDIATELY, call NO tools
+ESCALATION TRIGGERS (escalate if ANY apply):
+- Confirmed SLA breach on guaranteed contract → CRITICAL
+- Revenue impact > $100/day → HIGH
+- Account suspended and disputed → HIGH
+- Waited > 2 business days without response → HIGH
+- Confirmed production bug → HIGH
+- Unresolvable contradiction → MEDIUM
+- Customer requests human agent → MEDIUM
+- Onboarding > 10 users → MEDIUM
 
-TOOLS MAY ONLY BE CALLED WHEN ESCALATING. Do not call log_escalation_reason with ticket_id "N/A".
-When escalating: use the EXACT ticket_id string returned by create_escalation_ticket — never write 'ESC-XXXXX'.
-
-Your final output MUST be ONLY the structured block below — no "Thought:", no "Action:", no extra text:
+FINAL OUTPUT — write this block ONLY after all tool calls are complete:
 
 ESCALATION_FINDINGS:
 - Escalation Decision: [ESCALATE or RESOLVE_AUTOMATICALLY]
 - Priority: [critical/high/medium/low/N/A]
 - Issue Type: [sla_violation/billing_dispute/bug_report/onboarding/general/N/A]
-- Assigned Team: [team name or N/A]
-- Ticket ID: [ESC-XXXXX or N/A]
-- Escalation Triggers Met: [list each trigger that applied, or 'none']
-- Reasoning: [one clear paragraph explaining your decision]
-- Next Steps for Customer: [what the customer should expect next]
+- Assigned Team: [exact value from get_escalation_routing, or N/A]
+- Ticket ID: [exact ticket_id from create_escalation_ticket, or N/A]
+- Escalation Triggers Met: [list or 'none']
+- Reasoning: [one clear paragraph]
+- Next Steps for Customer: [what happens next]
 """,
         agent=agent,
         context=context_tasks if context_tasks else None,
         expected_output=(
-            "Only the ESCALATION_FINDINGS block. "
-            "No Thought text, no Action text, no preamble. "
-            "Start directly with 'ESCALATION_FINDINGS:' and fill in all fields."
+            "Only the ESCALATION_FINDINGS block with all fields filled. "
+            "No Thought text, no Action text, no tool call syntax, no preamble. "
+            "Start with 'ESCALATION_FINDINGS:' on the first line."
         ),
     )

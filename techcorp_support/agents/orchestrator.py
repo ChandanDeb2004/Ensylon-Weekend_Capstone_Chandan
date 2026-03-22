@@ -406,6 +406,11 @@ def run_support_crew(
     try:
         crew_output = crew.kickoff()
         raw_output  = str(crew_output)
+        from monitoring.metrics import record_token_usage
+        token_data = record_token_usage(crew_output, session_id)
+        
+        emit(f"📊 Tokens used: {token_data['total_tokens']}")
+        
     except Exception as exc:
         logger.error(f"[ORCHESTRATOR] Crew execution failed: {exc}")
         raw_output = f"[CREW EXECUTION ERROR]: {exc}"
