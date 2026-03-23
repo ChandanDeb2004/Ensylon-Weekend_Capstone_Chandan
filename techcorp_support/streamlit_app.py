@@ -4,7 +4,7 @@ TechCorp Support Intelligence System — Streamlit Front-End
 Run: streamlit run streamlit_app.py
 """
 
-import os
+import os, re
 import sys
 import time
 import json
@@ -226,7 +226,8 @@ PROVIDERS = {
         "models": [
             # ── Cloud models — no download needed, add :cloud tag ────────
             "gpt-oss:20b-cloud",
-            "qwen3.5:cloud"
+            "qwen3.5:cloud",
+            "deepseek-v3.1:671b-cloud"
         ],
         "default_model": "deepseek-r1:cloud",
         "note": "No download needed. Sign in at ollama.com and get your token.",
@@ -263,14 +264,164 @@ CUSTOMER_OPTIONS = {
     "CUST-004 · Umbrella Ltd (Suspended)": "CUST-004",
 }
 CUSTOMER_KEYS = list(CUSTOMER_OPTIONS.keys())
-
+AICONS = {"account":"👤","feature":"⚙️","contract":"📄","escalation":"🚨"}
 AGENT_META = {
     "account":    {"icon": "👤", "label": "Account"},
     "feature":    {"icon": "⚙️",  "label": "Feature"},
     "contract":   {"icon": "📄", "label": "Contract"},
     "escalation": {"icon": "🚨", "label": "Escalation"},
 }
+def _parse_block(raw, name):
+    m = re.search(rf"{name}:\s*\n(.*?)(?=\n[A-Z_]{{3,}}:|\Z)", raw, re.DOTALL|re.IGNORECASE)
+    if not m: return []
+    rows = []
+    for line in m.group(1).splitlines():
+        line = line.strip().lstrip("*-•").strip()
+        if ":" in line:
+            k,_,v = line.partition(":")
+            k,v = k.strip(), v.strip()
+            if k and v and len(k)<70 and len(v)<500:
+                rows.append((k,v))
+    return rows
+ 
+def _vc(v):
+    vl = v.lower()
+    if any(x in vl for x in ["yes","active","✅","none found","current","not needed","resolve_auto","high confidence","no overage"]): return "g"
+    if any(x in vl for x in ["no","escalate","critical","breach","violated","suspended","❌","failed","error"]): return "r"
+    if any(x in vl for x in ["medium","unknown","low","to be determined","unavailable"]): return "y"
+    return ""
+ 
+def humanize_response(text: str) -> str:
+    import ollama
 
+    prompt = f"""
+Rewrite the following support response to sound natural, human, and empathetic.
+Keep it concise and professional. Remove technical/internal noise.
+
+Response:
+{text}
+"""
+
+    try:
+        res = ollama.chat(
+            model=st.session_state.llm_model,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return res["message"]["content"]
+    except:
+        return text
+
+def render_ai_response(result: dict):
+
+    raw       = result.get("final_response","")
+    escalated = result.get("escalated", False)
+    ticket    = result.get("ticket_id","")
+    conflicts = result.get("conflicts", [])
+
+    # Split response
+    if "---STRUCTURED_DATA---" in raw:
+        prose, _, structured = raw.partition("---STRUCTURED_DATA---")
+    else:
+        prose, structured = raw, ""
+
+    prose = prose.strip()
+
+    # ── 1. STATUS ─────────────────────────
+    render_status_banner(escalated, ticket)
+
+    # ── 2. HUMAN MESSAGE ─────────────────
+    if prose:
+        st.markdown(prose)
+
+    # ── 3. TECHNICAL DROPDOWN ────────────
+    render_technical_dropdown(structured, conflicts, escalated)
+
+def render_status_banner(escalated: bool, ticket: str):
+    if escalated:
+        st.markdown(f"""
+        <div style="
+            background: rgba(248,81,73,0.12);
+            border: 1px solid rgba(248,81,73,0.4);
+            padding: 0.8rem 1rem;
+            border-radius: 10px;
+            margin-bottom: 0.8rem;
+            font-weight: 600;
+            color: #f85149;
+        ">
+            🚨 ESCALATED {f'— Ticket {ticket}' if ticket else ''}
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="
+            background: rgba(63,185,80,0.12);
+            border: 1px solid rgba(63,185,80,0.4);
+            padding: 0.8rem 1rem;
+            border-radius: 10px;
+            margin-bottom: 0.8rem;
+            font-weight: 600;
+            color: #3fb950;
+        ">
+            ✅ RESOLVED
+        </div>
+        """, unsafe_allow_html=True)
+
+def render_technical_dropdown(structured: str, conflicts: list, escalated: bool):
+    
+    account    = dict(_parse_block(structured, "ACCOUNT_FINDINGS"))
+    feature    = dict(_parse_block(structured, "FEATURE_FINDINGS"))
+    contract   = dict(_parse_block(structured, "CONTRACT_FINDINGS"))
+    escalation = dict(_parse_block(structured, "ESCALATION_FINDINGS"))
+
+    has_any = any([account, feature, contract, escalation, conflicts])
+    if not has_any:
+        return
+
+    with st.expander("📋 Technical Details", expanded=False):
+
+        # ── Account ─────────────────────────
+        if account:
+            st.markdown("### 👤 Account")
+            for k, v in account.items():
+                c1, c2 = st.columns([2, 3])
+                c1.markdown(k)
+                c2.markdown(v)
+
+        # ── Feature ─────────────────────────
+        if feature:
+            st.markdown("### ⚙️ Feature")
+            for k, v in feature.items():
+                c1, c2 = st.columns([2, 3])
+                c1.markdown(k)
+                c2.markdown(v)
+
+        # ── Conflicts ───────────────────────
+        if conflicts:
+            st.markdown("### ⚠️ Conflicts")
+            for c in conflicts:
+                st.markdown(f"""
+                <div style="
+                    background: rgba(240,136,62,0.1);
+                    border: 1px solid rgba(240,136,62,0.3);
+                    padding: 0.6rem;
+                    border-radius: 8px;
+                    margin-bottom: 6px;
+                ">
+                    {c}
+                </div>
+                """, unsafe_allow_html=True)
+
+        # ── Escalation ──────────────────────
+        if escalation or escalated:
+            st.markdown("### 🚨 Escalation")
+            
+            if escalation:
+                for k, v in escalation.items():
+                    c1, c2 = st.columns([2, 3])
+                    c1.markdown(k)
+                    c2.markdown(v)
+            else:
+                st.markdown("Escalated due to system inconsistency.")
 # ── 6. LLM configuration helpers ──────────────────────────────────────────────
 def apply_llm_config(provider: str, model: str, api_key: str = ""):
     """Write the chosen LLM config to environment variables so base_agent picks it up."""
@@ -379,8 +530,8 @@ def render_chat():
             st.markdown(f'<div class="chat-user"><div class="chat-role chat-role-user">▸ You</div>{turn["content"]}</div>', unsafe_allow_html=True)
         else:
             st.markdown(f'<div class="chat-assistant"><div class="chat-role chat-role-ai">◈ TechCorp AI</div>{turn["content"]}</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
+    
 
 def render_llm_selector():
     """Full LLM provider + model selector rendered in the sidebar."""
@@ -664,9 +815,19 @@ def main():
                 st.session_state.total_queries      += 1
                 st.session_state.total_escalations  += int(result.get("escalated", False))
                 st.session_state.total_conflicts    += len(result.get("conflicts", []))
+                raw = result["final_response"]
+
+                # Extract only human response
+                if "---STRUCTURED_DATA---" in raw:
+                    human, _, _ = raw.partition("---STRUCTURED_DATA---")
+                else:
+                    human = raw
+
+                clean = human.strip()
+                humanize_response(clean)
                 st.session_state.chat_history.append({
                     "role": "assistant",
-                    "content": result["final_response"],
+                    "content": clean,
                 })
                 try:
                     rp = Path("results/query_results.json")

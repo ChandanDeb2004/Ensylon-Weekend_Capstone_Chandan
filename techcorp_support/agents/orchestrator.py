@@ -186,58 +186,129 @@ def synthesize_response(
     state: StateManager,
 ) -> str:
     """
-    Build the final customer-facing response from all agent outputs.
+    Build a warm, human-written customer-facing response using the LLM.
+    The raw agent findings are passed as context; the LLM writes the actual reply.
+    Falls back to structured format if LLM call fails.
     """
-    sections = [
-        "═══════════════════════════════════════════════",
-        "  TECHCORP SUPPORT INVESTIGATION COMPLETE",
-        "═══════════════════════════════════════════════",
-        f"\nOriginal Query: {query}\n",
-    ]
-
-    if results.get("account"):
-        sections.append("📋 ACCOUNT INVESTIGATION:")
-        sections.append(results["account"])
-        sections.append("")
-
-    if results.get("feature"):
-        sections.append("⚙️  FEATURE INVESTIGATION:")
-        sections.append(results["feature"])
-        sections.append("")
-
-    if results.get("contract"):
-        sections.append("📄 CONTRACT REVIEW:")
-        sections.append(results["contract"])
-        sections.append("")
-
-    if conflicts:
-        sections.append("⚠️  CONFLICTS DETECTED & RESOLVED:")
-        for c in conflicts:
-            sections.append(f"  • {c}")
-        sections.append("")
-
-    if results.get("escalation"):
-        sections.append("🚨 ESCALATION DECISION:")
-        sections.append(results["escalation"])
-        sections.append("")
-
+    from agents.base_agent import build_llm_string
+    import litellm
+ 
     s = state.state
-    if s.escalation_triggered:
-        sections.append(
-            f"✅ ESCALATION TICKET CREATED: {s.escalation_ticket_id} | "
-            f"Priority: {s.escalation_priority.upper()}"
+ 
+    # Build context from all agent findings
+    findings_ctx = ""
+    if results.get("account"):
+        findings_ctx += f"ACCOUNT FINDINGS:\n{results['account']}\n\n"
+    if results.get("feature"):
+        findings_ctx += f"FEATURE FINDINGS:\n{results['feature']}\n\n"
+    if results.get("contract"):
+        findings_ctx += f"CONTRACT FINDINGS:\n{results['contract']}\n\n"
+    if results.get("escalation"):
+        findings_ctx += f"ESCALATION FINDINGS:\n{results['escalation']}\n\n"
+    if conflicts:
+        findings_ctx += f"CONFLICTS DETECTED:\n" + "\n".join(f"- {c}" for c in conflicts) + "\n\n"
+ 
+    escalation_note = ""
+    if s.escalation_triggered and s.escalation_ticket_id:
+        escalation_note = f"A support ticket has been created: {s.escalation_ticket_id} (Priority: {s.escalation_priority.upper()})"
+ 
+    prompt = f"""You are a senior TechCorp customer support specialist with strong communication skills and deep product knowledge.
+
+CUSTOMER QUERY:
+{query}
+
+INVESTIGATION FINDINGS (internal use only):
+{findings_ctx}
+{escalation_note}
+
+Your task is to generate a polished, human-like support response that a real enterprise support agent would send.
+
+Guidelines:
+
+TONE & STYLE
+- Warm, professional, and confident — avoid robotic phrasing
+- Write like a human, not a system (no templated stiffness)
+- Use natural transitions and conversational phrasing
+- Be concise but informative (no fluff, no repetition)
+
+STRUCTURE
+1. Start with a natural greeting (e.g., "Dear Customer,")
+2. Acknowledge the customer's issue clearly and specifically
+3. Provide a clear and detailed explanation of what is happening and why
+4. If applicable, guide the user with actionable next steps
+5. Address any inconsistencies (e.g., plan mismatch, documentation errors) transparently
+6. If escalated:
+   - Clearly state that the issue has been escalated
+   - Include the ticket ID naturally in the sentence
+   - Set expectation of follow-up
+7. If resolved:
+   - Clearly reassure the user the issue is understood/resolved
+   - Confirm no further action is required (if applicable)
+8. Close with a supportive sentence offering further help
+
+CONTENT RULES
+- NEVER expose raw system data, JSON, or internal field names
+- Translate all findings into plain English
+- If mentioning plans/features, explain them briefly in context
+- If steps are needed, include them inline in a natural flow (avoid rigid bullet lists unless necessary)
+- If uncertainty exists, communicate it carefully but confidently
+
+OUTPUT CONSTRAINTS
+- No markdown headers
+- Avoid excessive formatting
+- No meta-commentary, no system notes
+
+GOAL
+The response should feel like it was written by a high-quality human support agent at a premium SaaS company — clear, reassuring, and trustworthy.
+
+Write only the final response."""
+ 
+    try:
+        llm_str = build_llm_string()
+        response = litellm.completion(
+            model=llm_str,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=600,
+            temperature=0.4,
         )
-    else:
-        sections.append("✅ RESOLUTION: Issue resolved automatically — no escalation required.")
-
-    sections.append("\n───────────────────────────────────────────────")
-    sections.append(f"Agents invoked: {', '.join(s.agents_invoked)}")
-    sections.append(f"Conflicts resolved: {len(conflicts)}")
-    sections.append(f"Tool failures encountered: {len(s.failed_tools)}")
-    sections.append("═══════════════════════════════════════════════")
-
-    return "\n".join(sections)
-
+        human_response = response.choices[0].message.content.strip()
+ 
+        # Append structured data for the UI card rendering (kept separate from prose)
+        structured_block = "\n\n---STRUCTURED_DATA---\n"
+        if results.get("account"):    structured_block += f"ACCOUNT_FINDINGS:\n{results['account']}\n"
+        if results.get("feature"):    structured_block += f"FEATURE_FINDINGS:\n{results['feature']}\n"
+        if results.get("contract"):   structured_block += f"CONTRACT_FINDINGS:\n{results['contract']}\n"
+        if results.get("escalation"): structured_block += f"ESCALATION_FINDINGS:\n{results['escalation']}\n"
+ 
+        return human_response + structured_block
+ 
+    except Exception as e:
+        logger.warning(f"[SYNTHESIZER] LLM synthesis failed: {e} — using structured fallback")
+ 
+        # Structured fallback
+        sections = [
+            "Dear Customer,\n",
+            f"Thank you for reaching out. We have investigated your query: \"{query[:120]}\"\n",
+        ]
+        if results.get("feature"):
+            sections.append(results["feature"])
+        if results.get("account"):
+            sections.append(results["account"])
+        if results.get("contract"):
+            sections.append(results["contract"])
+        if conflicts:
+            sections.append("⚠️  Conflicts detected: " + " | ".join(conflicts))
+        if s.escalation_triggered:
+            sections.append(f"\nYour case has been escalated. Ticket: {s.escalation_ticket_id} (Priority: {s.escalation_priority.upper()})")
+        else:
+            sections.append("\nThis issue has been resolved automatically.")
+        sections.append("\nPlease don\'t hesitate to reach out if you need anything else.\n")
+        sections.append(f"\n---STRUCTURED_DATA---")
+        if results.get("account"):    sections.append(f"ACCOUNT_FINDINGS:\n{results['account']}")
+        if results.get("feature"):    sections.append(f"FEATURE_FINDINGS:\n{results['feature']}")
+        if results.get("contract"):   sections.append(f"CONTRACT_FINDINGS:\n{results['contract']}")
+        if results.get("escalation"): sections.append(f"ESCALATION_FINDINGS:\n{results['escalation']}")
+        return "\n".join(sections)
 
 # ── Post-process escalation output ───────────────────────────────────────────
 

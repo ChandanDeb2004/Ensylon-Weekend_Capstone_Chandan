@@ -1,0 +1,80 @@
+{
+  "session_id": "06939b0e",
+  "created_at": "2026-03-23T11:08:57.140633+00:00",
+  "runs": [
+    {
+      "session_id": "06939b0e",
+      "timestamp": "2026-03-23T11:08:57.140633+00:00",
+      "query": "how to turn on dark mode",
+      "customer_id": "CUST-003",
+      "llm_provider": "ollama_cloud",
+      "llm_model": "qwen3.5:cloud",
+      "final_response": "═══════════════════════════════════════════════\n  TECHCORP SUPPORT INVESTIGATION COMPLETE\n═══════════════════════════════════════════════\n\nOriginal Query: how to turn on dark mode\n\n⚙️  FEATURE INVESTIGATION:\nFEATURE_FINDINGS:\n- Feature Investigated: dark_mode\n- Available on Customer Plan: yes\n- Customer Plan: pro\n- Plan Required for Feature: pro, enterprise\n- Rate Limit: none\n- Setup Steps: 1. Navigate to Settings in the top right menu, 2. Click on Appearance tab, 3. Toggle the Dark Mode switch to ON, 4. Changes apply immediately\n- Documentation Discrepancies: none found\n- Configuration Issues: none\n- Upgrade Recommendation: not needed\n- Tool Failures: none\n- Confidence: high\n\n🚨 ESCALATION DECISION:\nESCALATION_FINDINGS:\n- Escalation Decision: RESOLVE_AUTOMATICALLY\n- Priority: N/A\n- Issue Type: general\n- Assigned Team: N/A\n- Ticket ID: N/A\n- Escalation Triggers Met: none\n- Reasoning: This is a straightforward feature inquiry about enabling dark mode. The customer has a pro plan which includes this feature, and clear setup steps are available in documentation. No escalation triggers are met - there is no SLA breach, revenue impact, account suspension, extended wait time, production bug, contradiction, human agent request, or large onboarding scenario. The issue can be resolved by providing the customer with the documented setup steps for enabling dark mode through the Settings menu.\n- Next Steps for Customer: Provide the customer with the setup steps: 1. Navigate to Settings in the top right menu, 2. Click on Appearance tab, 3. Toggle the Dark Mode switch to ON, 4. Changes apply immediately. No human agent intervention required.\n\n✅ RESOLUTION: Issue resolved automatically — no escalation required.\n\n───────────────────────────────────────────────\nAgents invoked: feature, escalation\nConflicts resolved: 0\nTool failures encountered: 0\n═══════════════════════════════════════════════",
+      "escalated": false,
+      "ticket_id": null,
+      "agents_used": [
+        "feature",
+        "escalation"
+      ],
+      "conflicts": [],
+      "duration_s": 22.45,
+      "state_dict": {
+        "session_id": "06939b0e",
+        "original_query": "how to turn on dark mode",
+        "customer_id": "CUST-003",
+        "contract_id": "CTR-003",
+        "started_at": "2026-03-23T11:08:34.686207",
+        "conversation_history": [
+          {
+            "role": "user",
+            "content": "how to turn on dark mode",
+            "timestamp": "2026-03-23T11:08:34.686214"
+          },
+          {
+            "role": "assistant",
+            "content": "═══════════════════════════════════════════════\n  TECHCORP SUPPORT INVESTIGATION COMPLETE\n═══════════════════════════════════════════════\n\nOriginal Query: how to turn on dark mode\n\n⚙️  FEATURE INVESTIGATION:\nFEATURE_FINDINGS:\n- Feature Investigated: dark_mode\n- Available on Customer Plan: yes\n- Customer Plan: pro\n- Plan Required for Feature: pro, enterprise\n- Rate Limit: none\n- Setup Steps: 1. Navigate to Settings in the top right menu, 2. Click on Appearance tab, 3. Toggle the Dark Mode switch ",
+            "timestamp": "2026-03-23T11:08:57.137728"
+          }
+        ],
+        "account_findings": [],
+        "feature_findings": [
+          {
+            "agent": "feature",
+            "finding": "FEATURE_FINDINGS:\n- Feature Investigated: dark_mode\n- Available on Customer Plan: yes\n- Customer Plan: pro\n- Plan Required for Feature: pro, enterprise\n- Rate Limit: none\n- Setup Steps: 1. Navigate to Settings in the top right menu, 2. Click on Appearance tab, 3. Toggle the Dark Mode switch to ON, 4. Changes apply immediately\n- Documentation Discrepancies: none found\n- Configuration Issues: none\n- Upgrade Recommendation: not needed\n- Tool Failures: none\n- Confidence: high",
+            "confidence": "high",
+            "timestamp": "2026-03-23T11:08:57.137586",
+            "tool_calls": []
+          }
+        ],
+        "contract_findings": [],
+        "escalation_findings": [
+          {
+            "agent": "escalation",
+            "finding": "ESCALATION_FINDINGS:\n- Escalation Decision: RESOLVE_AUTOMATICALLY\n- Priority: N/A\n- Issue Type: general\n- Assigned Team: N/A\n- Ticket ID: N/A\n- Escalation Triggers Met: none\n- Reasoning: This is a straightforward feature inquiry about enabling dark mode. The customer has a pro plan which includes this feature, and clear setup steps are available in documentation. No escalation triggers are met - there is no SLA breach, revenue impact, account suspension, extended wait time, production bug, contradiction, human agent request, or large onboarding scenario. The issue can be resolved by providing ",
+            "confidence": "high",
+            "timestamp": "2026-03-23T11:08:57.137630",
+            "tool_calls": []
+          }
+        ],
+        "routing_decisions": [],
+        "conflicts_detected": [],
+        "resolution_notes": [],
+        "escalation_triggered": false,
+        "escalation_ticket_id": null,
+        "escalation_priority": null,
+        "final_decision": "═══════════════════════════════════════════════\n  TECHCORP SUPPORT INVESTIGATION COMPLETE\n═══════════════════════════════════════════════\n\nOriginal Query: how to turn on dark mode\n\n⚙️  FEATURE INVESTIGATION:\nFEATURE_FINDINGS:\n- Feature Investigated: dark_mode\n- Available on Customer Plan: yes\n- Cust",
+        "agents_invoked": [
+          "feature",
+          "escalation"
+        ],
+        "investigation_complete": true,
+        "failed_tools": [],
+        "incomplete_data_notes": [],
+        "customer_profile": null,
+        "contract_data": null,
+        "active_plan": null
+      }
+    }
+  ],
+  "updated_at": "2026-03-23T11:08:57.140633+00:00"
+}
