@@ -75,58 +75,58 @@ def create_contract_task(
     if check_sla:
         date_to_use = issue_date or (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
         sla_instruction = f"""
-5. PRIORITY: Call validate_sla_compliance({contract_id}, '{date_to_use}') to determine
-   if an SLA breach has occurred. Calculate exact hours elapsed vs SLA guarantee.
-   Determine breach severity and any compensation clauses that apply.
-"""
+            5. PRIORITY: Call validate_sla_compliance({contract_id}, '{date_to_use}') to determine
+            if an SLA breach has occurred. Calculate exact hours elapsed vs SLA guarantee.
+            Determine breach severity and any compensation clauses that apply.
+            """
 
     return Task(
         description=f"""
-Investigate contract terms and SLA compliance for this support query:
+            Investigate contract terms and SLA compliance for this support query:
 
-QUERY: {query}
+            QUERY: {query}
 
-SHARED INVESTIGATION CONTEXT:
-{context_str}
+            SHARED INVESTIGATION CONTEXT:
+            {context_str}
 
-CONTRACT ID: {contract_id}
+            CONTRACT ID: {contract_id}
 
-⛔ HARD RULE: Every tool call MUST use "{contract_id}" as the argument.
-   Do not use CTR-001, CTR-002 unless {contract_id} matches exactly.
-   Use ONLY: {contract_id}
+            ⛔ HARD RULE: Every tool call MUST use "{contract_id}" as the argument.
+            Do not use CTR-001, CTR-002 unless {contract_id} matches exactly.
+            Use ONLY: {contract_id}
 
-YOUR TASK — call these tools in order:
-Step 1: lookup_contract("{contract_id}") → read the plan, SLA type, all fields
-Step 2: get_contract_terms("{contract_id}") → get exact SLA hours and special terms
-Step 3: get_included_features("{contract_id}") → list all features in contract
-{sla_instruction}
-Step 5: If any tool fails, document it and fill that field as "tool failure - unavailable"
-Step 6: Fill every field in CONTRACT_FINDINGS using the actual data from Steps 1-4.
-        Do NOT write "unknown" or "to be determined" — use real values from tool responses.
+            YOUR TASK — call these tools in order:
+            Step 1: lookup_contract("{contract_id}") → read the plan, SLA type, all fields
+            Step 2: get_contract_terms("{contract_id}") → get exact SLA hours and special terms
+            Step 3: get_included_features("{contract_id}") → list all features in contract
+            {sla_instruction}
+            Step 5: If any tool fails, document it and fill that field as "tool failure - unavailable"
+            Step 6: Fill every field in CONTRACT_FINDINGS using the actual data from Steps 1-4.
+                    Do NOT write "unknown" or "to be determined" — use real values from tool responses.
 
-CONFLICT RESOLUTION RULE: If contract terms conflict with documentation or account
-settings, the contract is the authoritative source. State this explicitly.
+            CONFLICT RESOLUTION RULE: If contract terms conflict with documentation or account
+            settings, the contract is the authoritative source. State this explicitly.
 
-OUTPUT FORMAT — always end with a structured findings block:
-CONTRACT_FINDINGS:
-- Contract ID: [CTR-XXX]
-- Plan in Contract: [plan name]
-- SLA Type: [guaranteed/best-effort]
-- SLA Response Hours: [N hours]
-- SLA Breach Occurred: [yes/no/cannot determine]
-- Hours Overdue (if breach): [N hours or N/A]
-- Compensation Applicable: [describe or 'none']
-- Contractual Feature Entitlements: [list]
-- Special Terms / Addenda: [describe or 'none']
-- Conflicts with Documentation/Account: [describe or 'none']
-- Tool Failures: [list or 'none']
-- Confidence: [high/medium/low]
-""",
-        agent=agent,
-        context=context_tasks if context_tasks else None,
-        expected_output=(
-            "Only the CONTRACT_FINDINGS block. "
-            "No 'Thought:' text, no 'Action:' text, no preamble, no code fences. "
-            "Start directly with 'CONTRACT_FINDINGS:' and fill in every field."
-        ),
-    )
+            OUTPUT FORMAT — always end with a structured findings block:
+            CONTRACT_FINDINGS:
+            - Contract ID: [CTR-XXX]
+            - Plan in Contract: [plan name]
+            - SLA Type: [guaranteed/best-effort]
+            - SLA Response Hours: [N hours]
+            - SLA Breach Occurred: [yes/no/cannot determine]
+            - Hours Overdue (if breach): [N hours or N/A]
+            - Compensation Applicable: [describe or 'none']
+            - Contractual Feature Entitlements: [list]
+            - Special Terms / Addenda: [describe or 'none']
+            - Conflicts with Documentation/Account: [describe or 'none']
+            - Tool Failures: [list or 'none']
+            - Confidence: [high/medium/low]
+            """,
+                    agent=agent,
+                    context=context_tasks if context_tasks else None,
+                    expected_output=(
+                        "Only the CONTRACT_FINDINGS block. "
+                        "No 'Thought:' text, no 'Action:' text, no preamble, no code fences. "
+                        "Start directly with 'CONTRACT_FINDINGS:' and fill in every field."
+                    ),
+                )

@@ -1,20 +1,6 @@
 """
-langfuse_config.py — pinned to langfuse==2.36.2
-
-langfuse 2.36.2 stable API:
-  from langfuse import Langfuse
-  lf    = Langfuse(public_key, secret_key, host)
-  trace = lf.trace(name, session_id, metadata)   -> StatefulTraceClient
-  span  = trace.span(name, metadata)             -> StatefulSpanClient
-  event = trace.event(name, metadata, level)     -> logs event on trace
-  gen   = trace.generation(name, ...)            -> LLM generation
-  lf.flush()                                     -> sends all pending
-
-  from langfuse.callback import CallbackHandler  -> LangChain callback (2.x)
-
-Install:
-  pip uninstall langfuse -y
-  pip install langfuse==2.36.2
+langfuse_config.py — langfuse==4.0.1
+Minimal setup: configure once, then let OTEL auto-instrument everything.
 """
 
 import os
@@ -24,83 +10,57 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-_client = None
-_initialized = False
+_configured = False
 
 
-def get_langfuse_client():
+def configure():
     """
-    Returns initialized Langfuse 2.36.2 client singleton.
+    Call once at startup. Langfuse v4 then auto-traces all LLM calls
+    via OpenTelemetry — no manual spans needed.
     """
-    global _client, _initialized
-
-    if _initialized:
-        return _client
-
-    _initialized = True
-
+    global _configured
+    if _configured:
+        return
     if not is_langfuse_enabled():
-        logger.info("[LANGFUSE] Credentials not configured — tracing disabled.")
-        return None
-
+        logger.info("[LANGFUSE] Credentials not set — tracing disabled.")
+        return
     try:
-        from langfuse import Langfuse
-        _client = Langfuse(
+        import langfuse
+        langfuse.configure(
             public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
             secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
             host=os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
         )
-        ok = _client.auth_check()
-        if ok:
-            logger.info("[LANGFUSE] ✅ Connected to Langfuse Cloud (v2.36.2) — auth OK")
-        else:
-            logger.warning("[LANGFUSE] ⚠️  auth_check() = False — check your API keys")
-        return _client
+        _configured = True
+        logger.info("[LANGFUSE] ✅ Configured — OTEL auto-instrumentation active (v4)")
     except Exception as e:
-        logger.warning(f"[LANGFUSE] Client init failed: {e}")
-        _client = None
-        return None
+        logger.warning(f"[LANGFUSE] Configure failed: {e}")
 
 
-def get_langfuse_handler(session_id: str = "default", user_id: str = "support-system"):
+def log_event(name: str, metadata: dict = None):
     """
-    LangChain CallbackHandler for automatic LLM call tracing.
-    Attaches to CrewAI's LLM so every model call is traced.
+    Log a custom business event (escalation, conflict, SLA breach etc.)
+    to the current active Langfuse trace span.
     """
-    if not is_langfuse_enabled():
-        return None
+    if not _configured:
+        return
     try:
-        from langfuse.callback import CallbackHandler
-        handler = CallbackHandler(
-            public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
-            secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
-            host=os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
-            session_id=session_id,
-            user_id=user_id,
-            trace_name="techcorp-support-crew",
-        )
-        logger.info(f"[LANGFUSE] CallbackHandler ready | session={session_id}")
-        return handler
+        import langfuse
+        client = langfuse.get_client()
+        client.create_event(name=name, metadata=metadata or {})
     except Exception as e:
-        logger.warning(f"[LANGFUSE] CallbackHandler failed: {e}")
-        return None
-
-
-# Compatibility aliases used in entry points
-def setup_langfuse_otel():
-    get_langfuse_client()
-
-def configure_langfuse():
-    get_langfuse_client()
+        logger.debug(f"[LANGFUSE] log_event '{name}' skipped: {e}")
 
 
 def flush():
-    lf = get_langfuse_client()
-    if lf:
-        try:
-            lf.flush()
-        except Exception:
-            pass
+    """Flush pending spans before process exit."""
+    if not _configured:
+        return
+    try:
+        import langfuse
+        langfuse.flush()
+    except Exception:
+        pass
 
 
 def is_langfuse_enabled() -> bool:
@@ -110,6 +70,6 @@ def is_langfuse_enabled() -> bool:
 
 
 def reset():
-    global _client, _initialized
-    _client = None
-    _initialized = False
+    """Force re-init — for testing."""
+    global _configured
+    _configured = False

@@ -75,13 +75,18 @@ CUSTOMER ID: {customer_id}
    Using ANY other customer ID (CUST-001, CUST-002, etc.) is WRONG unless {customer_id} matches.
    Do not guess or substitute. Use ONLY: {customer_id}
 
-YOUR TASK — call tools in this exact order with EXACTLY "{customer_id}":
-1. lookup_customer("{customer_id}")
-2. check_account_status("{customer_id}")
-3. list_enabled_features("{customer_id}")
-4. get_billing_history("{customer_id}") — only if billing is relevant to the query
-5. Note any discrepancies found in the results above.
-6. If any tool fails, document it and continue with available data.
+YOUR TASK — you MUST call these tools NOW. Do not describe what tools you would call.
+Actually call them and use their real return values in your ACCOUNT_FINDINGS block.
+
+EXECUTE IN ORDER:
+1. Call lookup_customer("{customer_id}") → use the returned plan, status, contract_id
+2. Call check_account_status("{customer_id}") → use the returned seats, overage data
+3. Call list_enabled_features("{customer_id}") → use the returned feature list
+4. Call get_billing_history("{customer_id}") only if billing is relevant to this query
+
+IMPORTANT: Every field in ACCOUNT_FINDINGS must contain REAL data from tool responses.
+Never write "Unable to verify", "requires execution", or "unknown" if a tool succeeded.
+If a tool fails, write "tool failed" for that field and continue.
 
 OUTPUT FORMAT — always end with a structured findings block:
 ACCOUNT_FINDINGS:

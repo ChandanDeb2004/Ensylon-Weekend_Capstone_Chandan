@@ -58,10 +58,6 @@ def build_llm_string() -> str:
         llm_str = f"ollama/{model}"
 
     elif provider == "ollama_cloud":
-        # Ollama Cloud — runs via LOCAL Ollama at localhost:11434
-        # Cloud models require: ollama signin (done once in terminal)
-        # Model names use -cloud suffix: gpt-oss:120b-cloud, deepseek-v3.1:671-cloud
-        # No separate API endpoint — Ollama handles cloud auth transparently
         base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         os.environ["OLLAMA_API_BASE"] = base_url
         # Ensure model has -cloud suffix (not :cloud)
@@ -79,11 +75,6 @@ def build_llm_string() -> str:
         os.environ["GROQ_API_KEY"] = api_key
         # Groq strict schema requirements
         os.environ["LITELLM_DROP_PARAMS"] = "True"
-        # Groq recommended models for tool use:
-        # llama-3.3-70b-versatile  (best)
-        # llama-3.1-70b-versatile
-        # mixtral-8x7b-32768
-        # gemma2-9b-it
         if model in ("gemma3:12b", "gemma3:4b"):
             logger.warning(
                 "[LLM] Groq does not support Gemma3 models. "
@@ -137,23 +128,6 @@ def build_llm_string() -> str:
     return llm_str
 
 
-def _make_step_callback(agent_name: str, session_id: str):
-    """Logs each agent step as a Langfuse event."""
-    def callback(step_output):
-        try:
-            from monitoring.tracing_utils import _safe_log_event
-            _safe_log_event(
-                name="agent_step",
-                session_id=session_id,
-                metadata={
-                    "agent":          agent_name,
-                    "output_preview": str(step_output)[:300],
-                },
-            )
-        except Exception:
-            pass
-    return callback
-
 
 def build_agent(
     role: str,
@@ -165,8 +139,7 @@ def build_agent(
     max_iter: int = 8,
     allow_delegation: bool = False,
 ) -> Agent:
-    from monitoring.langfuse_config import get_langfuse_client
-    get_langfuse_client()
+    
 
     llm = build_llm_string()
 
@@ -180,7 +153,7 @@ def build_agent(
         max_iter=max_iter,
         allow_delegation=allow_delegation,
         memory=False,
-        step_callback=_make_step_callback(role, session_id),
+        
     )
     logger.info(f"[AGENT] Built: {role}")
     return agent

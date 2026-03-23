@@ -11,6 +11,7 @@ Responsibilities:
 """
 
 import re
+import os
 import uuid
 import time
 import logging
@@ -29,8 +30,12 @@ from monitoring.tracing_utils import log_decision_point, log_conflict, log_escal
 from monitoring.metrics import record_run_metrics
 
 logger = logging.getLogger(__name__)
+from langfuse import get_client
+ 
+langfuse = get_client()
+from openinference.instrumentation.crewai import CrewAIInstrumentor
 
-
+CrewAIInstrumentor().instrument(skip_dep_check=True)
 # ── Query Analysis ─────────────────────────────────────────────────────────────
 
 def analyze_query(query: str) -> dict:
@@ -41,16 +46,31 @@ def analyze_query(query: str) -> dict:
     """
     q = query.lower()
 
-    needs_account  = any(kw in q for kw in [
-        "account", "plan", "subscription", "billing", "seat", "user",
-        "license", "payment", "invoice", "starter", "pro", "enterprise",
-        "migrate", "migration", "upgrade"
+    # Strong account signals — clearly about the customer's own account
+    strong_account = any(kw in q for kw in [
+        "my account", "my plan", "my subscription", "my billing", "my invoice",
+        "our account", "our plan", "our subscription", "our seats", "our users",
+        "billing history", "payment", "invoice", "seat", "license",
+        "migrate", "migration", "i'm on", "we're on", "we have",
+        "charged", "charge", "renewal", "cancel",
+    ])
+    # Weak account signals — only trigger if no pure feature/compare intent
+    weak_account = any(kw in q for kw in [
+        "account", "subscription", "upgrade", "downgrade",
+        "starter", "pro", "enterprise",
+    ])
+    # Comparison queries ("difference between X and Y") are feature queries, not account
+    is_comparison = any(kw in q for kw in [
+        "difference between", "compare", "what does", "what is included",
+        "which plan", "what plan", "features of", "vs ", " vs"
     ])
     needs_feature  = any(kw in q for kw in [
         "feature", "dark mode", "api", "integration", "webhook", "sso",
         "export", "analytics", "enable", "configure", "setup", "limit",
-        "rate limit", "automation", "rate"
+        "rate limit", "automation", "rate", "difference", "compare",
+        "what does", "what is included", "which plan", "what plan",
     ])
+    needs_account = strong_account or (weak_account and not is_comparison and not needs_feature)
     needs_contract = any(kw in q for kw in [
         "contract", "sla", "agreement", "violation", "breach", "terms",
         "guarantee", "entitlement", "addendum", "legal", "promised"
@@ -348,12 +368,12 @@ def run_support_crew(
 
     if plan["needs_feature"]:
         emit("⚙️  Invoking Feature Agent...")
-        # Determine plan from account findings if possible (sequential dependency)
         feat_agent = create_feature_agent(session_id)
         feat_task  = create_feature_task(
             feat_agent, query, ctx,
             feature_name=plan.get("feature_hint", ""),
             customer_plan=state.state.active_plan or "",
+            customer_id=cid,
         )
         crew_agents.append(feat_agent)
         tasks.append(feat_task)
@@ -399,21 +419,51 @@ def run_support_crew(
     crew = Crew(
         agents=crew_agents,
         tasks=tasks,
-        process=Process.sequential,   # sequential ensures context flows forward
+        process=Process.sequential,
         verbose=True,
     )
 
+    crew_output = None
     try:
-        crew_output = crew.kickoff()
-        raw_output  = str(crew_output)
+        from monitoring.langfuse_config import is_langfuse_enabled
+        
+        if is_langfuse_enabled():
+            import langfuse as _lf
+            with langfuse.start_as_current_observation(
+                as_type="span",
+                name="techcorp-support-crew",
+                metadata={
+                    "session_id": session_id,
+                    "query":      query[:120],
+                    "provider":   os.getenv("LLM_PROVIDER", "ollama"),
+                    "model":      os.getenv("LLM_MODEL", "unknown"),
+                },
+            ):
+                crew_output = crew.kickoff()
+
+        raw_output = str(crew_output)
+        
+
+        # Token usage tracking
         from monitoring.metrics import record_token_usage
         token_data = record_token_usage(crew_output, session_id)
-        
-        emit(f"📊 Tokens used: {token_data['total_tokens']}")
-        
+        if token_data["total_tokens"] > 0:
+            emit(f"📊 Tokens used: {token_data['total_tokens']}")
+
     except Exception as exc:
+        err_str = str(exc)
         logger.error(f"[ORCHESTRATOR] Crew execution failed: {exc}")
-        raw_output = f"[CREW EXECUTION ERROR]: {exc}"
+        if "None or empty" in err_str or "Invalid response" in err_str:
+            model = os.getenv("LLM_MODEL", "unknown")
+            raw_output = (
+                f"[CREW EXECUTION ERROR]: Model '{model}' returned empty response.\n\n"
+                f"This model may not support tool calling (required by CrewAI).\n\n"
+                f"Try: qwen3:30b-cloud, llama3.3:70b-cloud (Ollama Cloud)\n"
+                f"  or: gemma3:12b, qwen2.5:7b (local Ollama)\n"
+                f"  or: llama-3.3-70b-versatile (Groq)"
+            )
+        else:
+            raw_output = f"[CREW EXECUTION ERROR]: {exc}"
 
     # ── Step 6: Parse outputs per agent ───────────────────────────────────────
     # CrewAI sequential: task outputs are available via tasks_output

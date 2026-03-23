@@ -54,8 +54,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 try:
-    from monitoring.langfuse_config import get_langfuse_client
-    get_langfuse_client()
+    from monitoring.langfuse_config import configure
+    configure()
 except Exception as e:
     logger.warning(f"[UI] Langfuse init skipped: {e}")
 
@@ -435,10 +435,23 @@ def render_llm_selector():
             unsafe_allow_html=True,
         )
     else:
+        icon = "☁️" if selected_provider == "ollama_cloud" else "✅"
+        color = "var(--accent)" if selected_provider == "ollama_cloud" else "var(--accent-green)"
         st.markdown(
-            f'<div style="font-size:0.68rem;color:var(--accent-green);margin-top:4px">✅ {p["note"]}</div>',
+            f'<div style="font-size:0.68rem;color:{color};margin-top:4px">{icon} {p["note"]}</div>',
             unsafe_allow_html=True,
         )
+
+    # Warning for cloud models without tool calling
+    if selected_provider == "ollama_cloud":
+        st.markdown("""
+        <div style="background:rgba(240,136,62,0.1);border:1px solid rgba(240,136,62,0.3);
+                    border-radius:8px;padding:0.6rem 0.8rem;margin:0.4rem 0;
+                    font-size:0.72rem;color:#f0883e;font-family:'JetBrains Mono',monospace;">
+          ⚠️ Requires <b>ollama signin</b> in terminal first.<br>
+          Only qwen3 and llama3.3 variants support tool calling.
+        </div>
+        """, unsafe_allow_html=True)
 
     # Apply button
     config_changed = (

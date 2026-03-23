@@ -4,13 +4,13 @@ escalation:
   sla_breach_priority: critical
 langfuse:
   host: https://cloud.langfuse.com
-  public_key: ${LANGFUSE_PUBLIC_KEY}
-  secret_key: ${LANGFUSE_SECRET_KEY}
+  public_key: ${pk-lf-35677bcd-9e9c-4bf0-b468-12bb1150c3be}
+  secret_key: ${sk-lf-1940c94f-9c84-4260-a814-f3c1fcef114d}
 llm:
   base_url: http://localhost:11434
   max_tokens: 4096
-  model: qwen3.5:cloud
-  provider: ollama_cloud
+  model: gemma3:4b
+  provider: ollama
   temperature: 0.1
 logging:
   format: '%(asctime)s | %(name)s | %(levelname)s | %(message)s'

@@ -20,7 +20,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
+# ── Langfuse OTEL setup (must run before any agent)
+from monitoring.langfuse_config import configure
+configure()
 
 # ── Logging setup ──────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -97,7 +99,7 @@ def print_banner():
     print("""
 ╔══════════════════════════════════════════════════════════╗
 ║    TechCorp Multi-Agent Customer Support System          ║
-║    Backend: CrewAI  |  LLM: Gemma 3  (Ollama)            ║
+║    Backend: CrewAI  |  LLM: qwen2.5 (Ollama)            ║
 ║    Observability: Langfuse Cloud                         ║
 ╚══════════════════════════════════════════════════════════╝
     """)

@@ -1,9 +1,7 @@
-crewai>=1.10.1
+# ── Core ──────────────────────────────────────────────────────────────────────
+crewai>=1.10.1,<1.12.0
 crewai-tools>=0.25.0
-
-langfuse==2.36.2
-ollama>=0.4.0
-
+langfuse==4.0.1
 streamlit>=1.39.0
 pydantic>=2.9.2
 pyyaml>=6.0.2
@@ -11,15 +9,26 @@ python-dotenv>=1.0.1
 rich>=13.9.4
 httpx>=0.27.2
 tenacity>=9.0.0
+
+# ── OpenTelemetry — pinned to match crewai (~=1.34.0) ────────────────────────
+opentelemetry-api==1.34.1
+opentelemetry-sdk==1.34.1
+opentelemetry-exporter-otlp-proto-http==1.34.1
+opentelemetry-exporter-otlp-proto-grpc==1.34.1
+opentelemetry-proto==1.34.1
+
+# ── LLM Providers ─────────────────────────────────────────────────────────────
+ollama>=0.4.0
 langchain-ollama>=0.1.0
+
 # Groq (uncomment to use)
 groq>=0.9.0
 
 # Google Gemini (uncomment to use)
-google-generativeai>=0.8.0
+# google-generativeai>=0.8.0
 
-#OpenAI (uncomment to use)
-openai>=1.40.0
+# OpenAI (uncomment to use)
+# openai>=1.40.0
 
 # Anthropic (uncomment to use)
-anthropic>=0.34.0
+# anthropic>=0.34.0
