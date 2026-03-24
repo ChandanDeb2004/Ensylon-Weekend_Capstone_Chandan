@@ -211,7 +211,24 @@ def synthesize_response(
     escalation_note = ""
     if s.escalation_triggered and s.escalation_ticket_id:
         escalation_note = f"A support ticket has been created: {s.escalation_ticket_id} (Priority: {s.escalation_priority.upper()})"
- 
+    
+    # Extract company name from account findings for personalisation
+    company_name = "Customer"
+    for line in findings_ctx.splitlines():
+        m = re.search(r'company.?name[:\s]+([^\n|]+)', line, re.IGNORECASE)
+        if m:
+            company_name = m.group(1).strip().rstrip(",.")
+            break
+    # Also check state for customer_id to map to known company names
+    cid_map = {
+        "CUST-001": "Acme Corp",
+        "CUST-002": "Globex Inc",
+        "CUST-003": "Initech LLC",
+        "CUST-004": "Umbrella Ltd",
+    }
+    if company_name == "Customer" and state.state.customer_id:
+        company_name = cid_map.get(state.state.customer_id, "Customer")
+
     prompt = f"""You are a senior TechCorp customer support specialist with strong communication skills and deep product knowledge.
 
 CUSTOMER QUERY:
@@ -224,7 +241,7 @@ INVESTIGATION FINDINGS (internal use only):
 Your task is to generate a polished, human-like support response that a real enterprise support agent would send.
 
 Guidelines:
-
+The customer's company name is: {company_name}
 TONE & STYLE
 - Warm, professional, and confident — avoid robotic phrasing
 - Write like a human, not a system (no templated stiffness)
@@ -272,7 +289,15 @@ Write only the final response."""
             temperature=0.4,
         )
         human_response = response.choices[0].message.content.strip()
- 
+
+         # Safety net — remove any remaining square bracket placeholders
+        import re as _re2
+        human_response = _re2.sub(r'\[Customer Name\]',       company_name,         human_response, flags=_re2.IGNORECASE)
+        human_response = _re2.sub(r'\[Your Name\]',           'TechCorp Support Team', human_response, flags=_re2.IGNORECASE)
+        human_response = _re2.sub(r'\[Support Agent Name\]',  'TechCorp Support Team', human_response, flags=_re2.IGNORECASE)
+        human_response = _re2.sub(r'\[[^\]]{1,40}\]',         '',                   human_response)  # catch any other [placeholders]
+        human_response = human_response.strip()
+
         # Append structured data for the UI card rendering (kept separate from prose)
         structured_block = "\n\n---STRUCTURED_DATA---\n"
         if results.get("account"):    structured_block += f"ACCOUNT_FINDINGS:\n{results['account']}\n"
@@ -535,6 +560,7 @@ def run_support_crew(
             )
         else:
             raw_output = f"[CREW EXECUTION ERROR]: {exc}"
+        
 
     # ── Step 6: Parse outputs per agent ───────────────────────────────────────
     # CrewAI sequential: task outputs are available via tasks_output

@@ -9,7 +9,7 @@ langfuse:
 llm:
   base_url: http://localhost:11434
   max_tokens: 4096
-  model: deepseek-v3.1:671b-cloud
+  model: qwen3.5:cloud
   provider: ollama_cloud
   temperature: 0.1
 logging:
